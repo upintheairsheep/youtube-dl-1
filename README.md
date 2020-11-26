@@ -1,5 +1,7 @@
 Niconico-based fork of youtube-dl
 
+Requires Python 3.7+, and `websockets` module installed (`pip install -r requirements.txt`)
+
 **LICENSING NOTE:**
 
 **All code in this project is licensed solely with the condition that any portion of it is not permitted to be used in the main youtube-dl fork, either directly or indirectly.**

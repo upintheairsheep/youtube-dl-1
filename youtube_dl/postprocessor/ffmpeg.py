@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import io
+import logging
 import os
 import subprocess
 import time
@@ -383,11 +384,21 @@ class FFmpegEmbedSubtitlePP(FFmpegPostProcessor):
             return [], information
 
         filename = information['filepath']
+        input_filename = filename
+
+        if self._downloader.params.get('merge_output_format') is not None:
+            filename = replace_extension(filename, self._downloader.params['merge_output_format'])
+
+            information['filepath'] = filename
+            information['ext'] = self._downloader.params['merge_output_format']
+        
+        
 
         ext = information['ext']
         sub_langs = []
         sub_filenames = []
         webm_vtt_warn = False
+        mp4_ass_warn = False
 
         for lang, sub_info in subtitles.items():
             sub_ext = sub_info['ext']
@@ -399,10 +410,14 @@ class FFmpegEmbedSubtitlePP(FFmpegPostProcessor):
                     webm_vtt_warn = True
                     self._downloader.to_screen('[ffmpeg] Only WebVTT subtitles can be embedded in webm files')
 
+            if not mp4_ass_warn and ext == 'mp4' and sub_ext == 'ass':
+                mp4_ass_warn = True
+                self._downloader.to_screen('[ffmpeg] ASS subtitles cannot be properly embedded in mp4 files; expect issues')
+
         if not sub_langs:
             return [], information
 
-        input_files = [filename] + sub_filenames
+        input_files = [input_filename] + sub_filenames
 
         opts = [
             '-map', '0',
@@ -424,7 +439,7 @@ class FFmpegEmbedSubtitlePP(FFmpegPostProcessor):
         temp_filename = prepend_extension(filename, 'temp')
         self._downloader.to_screen('[ffmpeg] Embedding subtitles in \'%s\'' % filename)
         self.run_ffmpeg_multiple_files(input_files, temp_filename, opts)
-        os.remove(encodeFilename(filename))
+        os.remove(encodeFilename(input_filename))
         os.rename(encodeFilename(temp_filename), encodeFilename(filename))
 
         return sub_filenames, information
@@ -447,6 +462,13 @@ class FFmpegMetadataPP(FFmpegPostProcessor):
                         metadata[meta_f] = info[info_f]
                     break
 
+        # See [1-4] for some info on media metadata/metadata supported
+        # by ffmpeg.
+        # 1. https://kdenlive.org/en/project/adding-meta-data-to-mp4-video/
+        # 2. https://wiki.multimedia.cx/index.php/FFmpeg_Metadata
+        # 3. https://kodi.wiki/view/Video_file_tagging
+        # 4. http://atomicparsley.sourceforge.net/mpeg-4files.html
+
         add('title', ('track', 'title'))
         add('date', 'upload_date')
         add(('description', 'comment'), 'description')
@@ -457,6 +479,10 @@ class FFmpegMetadataPP(FFmpegPostProcessor):
         add('album')
         add('album_artist')
         add('disc', 'disc_number')
+        add('show', 'series')
+        add('season_number')
+        add('episode_id', ('episode', 'episode_id'))
+        add('episode_sort', 'episode_number')
 
         if not metadata:
             self._downloader.to_screen('[ffmpeg] There isn\'t any metadata to add')
@@ -644,3 +670,49 @@ class FFmpegSubtitlesConvertorPP(FFmpegPostProcessor):
                 }
 
         return sub_filenames, info
+
+
+class FFmpegSplitByTracksPP(FFmpegPostProcessor):
+    log = logging.getLogger(__name__)
+
+    def _ffmpeg_time_string(self, seconds):
+        t_minutes, t_seconds = divmod(seconds, 60)
+        t_hours, t_minutes = divmod(t_minutes, 60)
+        t_string = '{hrs:02}:{min:02}:{sec:02}'.format(hrs=t_hours, min=t_minutes, sec=t_seconds)
+        return t_string
+
+    def _build_track_name(self, chapter, information):
+        track_title = chapter.get("title", "")
+        track_title = encodeFilename(track_title)
+        track_title = track_title.replace("/", "_")
+
+        prefix, sep, ext = information['filepath'].rpartition('.')
+        track_name = "%s - %s%s%s" % (prefix, track_title, sep, ext)
+
+        return track_name
+
+    def _extract_track_from_chapter(self, chapter, information):
+        start = int(chapter['start_time'])
+        end = int(chapter['end_time'])
+        duration = end - start
+
+        start = self._ffmpeg_time_string(start)
+        duration = self._ffmpeg_time_string(duration)
+
+        destination = self._build_track_name(chapter, information)
+
+        self.run_ffmpeg(information['filepath'], destination, ['-c', 'copy', '-ss', start, '-t', duration])
+
+    def run(self, information):
+        chapters = information.get('chapters', [])
+        if not isinstance(chapters, list) or len(chapters) == 0:
+            self.log.warning('[ffmpeg] There are no tracks to extract')
+            return [], information
+
+        for idx, chapter in enumerate(chapters):
+            try:
+                self._extract_track_from_chapter(chapter, information)
+            except Exception as e:
+                self.log.error('Splitting track failed: ' + repr(e))
+
+        return [], information

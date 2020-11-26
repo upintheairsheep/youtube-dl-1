@@ -447,7 +447,8 @@ class NiconicoIE(InfoExtractor):
         video_detail = watch_api_data.get('videoDetail', {})
 
         thumbnail = (
-            get_video_info(['thumbnail_url', 'thumbnailURL'])
+            self._html_search_regex(r'<meta property="og:image" content="([^"]+)">', webpage, 'thumbnail data', default=None)
+            or get_video_info(['largeThumbnailURL', 'thumbnail_url', 'thumbnailURL'])
             or self._html_search_meta('image', webpage, 'thumbnail', default=None)
             or video_detail.get('thumbnail'))
 
@@ -520,15 +521,15 @@ class NiconicoIE(InfoExtractor):
             }
             
             subtitles = {
-                'danmaku-en': [{
+                'eng': [{
                     'ext': 'ass',
                     'data': NiconicoIE.CreateDanmaku(json.dumps(raw_comments['en']))
                 }],
-                'danmaku-jp': [{
+                'jpn': [{
                     'ext': 'ass',
                     'data': NiconicoIE.CreateDanmaku(json.dumps(raw_comments['jp']))
                 }],
-                'danmaku-cn': [{
+                'zh': [{
                     'ext': 'ass',
                     'data': NiconicoIE.CreateDanmaku(json.dumps(raw_comments['cn']))
                 }]
@@ -827,82 +828,62 @@ class NiconicoLiveIE(InfoExtractor):
             self._downloader.report_warning('unable to log in: bad username or password')
         return login_ok
 
-    async def stream_heartbeat(self, websocket, watching_frame):
+    async def stream_heartbeat(self, websocket, heartbeat_interval):
+        heartbeat_frame = json.dumps({'type': 'keepSeat'})
         while True:
-            await websocket.send(json.dumps(watching_frame))
-            await asyncio.sleep(15)
+            await websocket.send(heartbeat_frame)
+            await asyncio.sleep(heartbeat_interval)
 
+    async def open_stream_websocket(self, uri, best_quality, loop, queue):
+        cookies_header = {'Cookie': self._get_cookies(uri).output(header='', sep=';')}
 
-    async def open_stream_websocket(self, uri, broadcast_id, loop, queue):
-
-        async with websockets.connect(uri) as websocket:
-            watching_frame = {
-                "type": "watch",
-                "body": {
-                    "command": "watching",
-                    "params": [
-                        broadcast_id,
-                        "-1",
-                        "0"
-                    ]
-                }
-            }
-
-            watching_frame["body"]["params"][0] = broadcast_id
-
-            permit_frame = {
-                "type": "watch",
-                "body": {
-                    "command": "getpermit",
-                    "requirement": {
-                        "broadcastId": broadcast_id,
-                        "route": "",
-                        "stream": {
-                            "protocol": "hls",
-                            "requireNewStream": True,
-                            "priorStreamQuality": "abr",
-                            "isLowLatency": True,
-                            "isChasePlay": False
-                        },
-                        "room": {
-                            "isCommentable": True,
-                            "protocol": "webSocket"
-                        }
-                    }
-                }
+        async with websockets.connect(uri, extra_headers=cookies_header) as websocket:
+            initial_frame = {
+                "type": "startWatching",
+                "data": {
+                    "stream": {
+                        "quality": best_quality,
+                        "protocol": "hls",
+                        "latency": "high",
+                        "chasePlay": False,
+                    },
+                    "room": {
+                        "protocol": "webSocket",
+                        "commentable": True,
+                    },
+                },
             }
             
-            await websocket.send(json.dumps(permit_frame))
+            await websocket.send(json.dumps(initial_frame))
 
-            heartbeat = loop.create_task(self.stream_heartbeat(websocket, watching_frame))
-
+            heartbeat = None
             try:
                 while True:
                     frame = json.loads(await websocket.recv())
                     frame_type = frame["type"]
 
-                    if frame_type == "watch":
-                        command = frame["body"]["command"]
+                    if frame_type == "stream":
+                        stream_url = frame["data"]["uri"]
+                        queue.put(stream_url)
 
-                        if command == "statistics":
-                            continue
-
-                        elif command == "currentstream":
-                            stream_url = frame["body"]["currentStream"]["uri"]
-                            queue.put(stream_url)
+                    elif frame_type == "seat":
+                        if heartbeat:
+                            heartbeat.cancel()
+                        heartbeat = loop.create_task(self.stream_heartbeat(websocket, frame["data"]["keepIntervalSec"]))
 
                     elif frame_type == "ping":
                         await websocket.send("""{"type":"pong","body":{}}""")
 
             except websockets.exceptions.ConnectionClosed:
                 self.to_screen("Connection was closed. Exiting...")
-                heartbeat.cancel()
+                if heartbeat:
+                    heartbeat.cancel()
                 return
 
-    def start_heartbeat(self, websocket_url, broadcast_id, queue):
+    def start_heartbeat(self, websocket_url, best_quality, queue):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        loop.run_until_complete(self.open_stream_websocket(websocket_url, broadcast_id, loop, queue))
+        loop.run_until_complete(self.open_stream_websocket(websocket_url, best_quality, loop, queue))
 
     def _real_extract(self, url):
         video_id = self._match_id(url)
@@ -920,14 +901,14 @@ class NiconicoLiveIE(InfoExtractor):
             embedded_data = json.loads(embedded_data_raw)
 
             websocket_url = embedded_data['site']['relive']['webSocketUrl']
-            broadcast_id = embedded_data['program']['broadcastId']
+            best_quality = embedded_data['program']['stream']['maxQuality']
 
             if websocket_url is None or websocket_url == '':
                 raise ExtractorError('Unable to find stream media URL. Is the stream private or unavailable?', expected=True)
 
             q = queue.Queue(maxsize=0)
 
-            _thread.start_new_thread(self.start_heartbeat, (websocket_url, broadcast_id, q))
+            _thread.start_new_thread(self.start_heartbeat, (websocket_url, best_quality, q))
 
             playlistUrl = q.get()
 
