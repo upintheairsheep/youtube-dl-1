@@ -201,11 +201,33 @@ class NiconicoIE(InfoExtractor):
         def yesno(boolean):
             return 'yes' if boolean else 'no'
 
+        def extract_video_quality(video_quality):
+            try:
+                # Example: 480p | 0.9M
+                r = re.match('^.*\| ([0-9]*\.?[0-9]*[MK])', video_quality)
+                if r is None:
+                    # Maybe conditionally throw depending on the settings?
+                    return 0
+
+                vbr_with_unit = r.group(1)
+                unit = vbr_with_unit[-1]
+                video_bitrate = float(vbr_with_unit[:-1])
+
+                if unit == 'M':
+                    video_bitrate *= 1000000
+                elif unit == 'K':
+                    video_bitrate *= 1000
+
+                return video_bitrate
+            except:
+                # Should at least log or something here
+                return 0
+
         session_api_data = api_data['video']['dmcInfo']['session_api']
         session_api_endpoint = session_api_data['urls'][0]
 
         format_id = '-'.join(map(lambda s: remove_start(s['id'], 'archive_'), [video_quality, audio_quality]))
-        
+
         session_response = self._download_json(
             session_api_endpoint['url'], video_id,
             query={'_format': 'json'},
@@ -270,13 +292,16 @@ class NiconicoIE(InfoExtractor):
         heartbeat_interval = session_api_data['heartbeat_lifetime'] / 8000
 
         resolution = video_quality.get('resolution', {})
+        vidQuality = video_quality.get('bitrate')
 
         return {
             'url': session_response['data']['session']['content_uri'],
             'format_id': format_id,
             'ext': 'mp4',  # Session API are used in HTML5, which always serves mp4
             'abr': float_or_none(audio_quality.get('bitrate'), 1000),
-            'vbr': float_or_none(video_quality.get('bitrate'), 1000),
+            # So this is kind of a hack; sometimes, the bitrate is incorrectly reported as 0kbs. If this is the case,
+            # extract it from the rest of the metadata we have available
+            'vbr': float_or_none(vidQuality if vidQuality > 0 else extract_video_quality(video_quality.get('label')), 1000),
             'height': resolution.get('height'),
             'width': resolution.get('width'),
             'quality': 5,
