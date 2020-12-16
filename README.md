@@ -412,7 +412,7 @@ Alternatively, refer to the [developer instructions](#developer-instructions) fo
                                      out, youtube-dl will ask interactively.
     -2, --twofactor TWOFACTOR        Two-factor authentication code
     -n, --netrc                      Use .netrc authentication data
-    --video-password PASSWORD        Video password (vimeo, smotri, youku)
+    --video-password PASSWORD        Video password (vimeo, youku)
 
 ## Adobe Pass Options:
     --ap-mso MSO                     Adobe Pass multiple-system operator (TV
@@ -586,7 +586,7 @@ The basic usage is not to set any template arguments when downloading a single f
  - `extractor` (string): Name of the extractor
  - `extractor_key` (string): Key name of the extractor
  - `epoch` (numeric): Unix epoch when creating the file
- - `autonumber` (numeric): Five-digit number that will be increased with each download, starting at zero
+ - `autonumber` (numeric): Number that will be increased with each download, starting at `--autonumber-start`
  - `playlist` (string): Name or id of the playlist that contains the video
  - `playlist_index` (numeric): Index of the video in the playlist padded with leading zeros according to the total length of the playlist
  - `playlist_id` (string): Playlist identifier
