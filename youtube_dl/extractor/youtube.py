@@ -15,6 +15,7 @@ from .common import InfoExtractor, SearchInfoExtractor
 from ..jsinterp import JSInterpreter
 from ..swfinterp import SWFInterpreter
 from ..compat import (
+    compat_kwargs,
     compat_chr,
     compat_parse_qs,
     compat_urllib_parse_unquote,
@@ -2081,8 +2082,9 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
 
             session_token = find_value(polymer_webpage, 'XSRF_TOKEN', 3)
+            session_token = bytes(session_token, 'ascii').decode('unicode-escape')
 
-            data = json.loads(find_value(polymer_webpage, 'window["ytInitialData"] = ', 0, '\n').rstrip(';'))
+            data = json.loads(find_value(polymer_webpage, 'var ytInitialData = ', 0, ';').rstrip(';'))
             ncd = next(search_dict(data, 'nextContinuationData'))
             continuations = [(ncd['continuation'], ncd['clickTrackingParams'])]
 
@@ -2111,9 +2113,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                         }),
                         query = query,
                         headers = {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36',
+                            'Accept': '*/*',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:76.0) Gecko/20100101 Firefox/76.0',
                             'X-YouTube-Client-Name': '1',
-                            'X-YouTube-Client-Version': '2.20200207.03.01'
+                            'X-YouTube-Client-Version': '2.20201202.06.01'
                         }
                     )
 
