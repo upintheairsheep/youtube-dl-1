@@ -2084,7 +2084,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             session_token = find_value(polymer_webpage, 'XSRF_TOKEN', 3)
             session_token = bytes(session_token, 'ascii').decode('unicode-escape')
 
-            data = json.loads(find_value(polymer_webpage, 'var ytInitialData = ', 0, ';').rstrip(';'))
+            data = json.loads(find_value(polymer_webpage, 'var ytInitialData = ', 0, '};') + '}')
             ncd = next(search_dict(data, 'nextContinuationData'))
             continuations = [(ncd['continuation'], ncd['clickTrackingParams'])]
 
