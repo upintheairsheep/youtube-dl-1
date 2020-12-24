@@ -488,7 +488,6 @@ class FFmpegMetadataPP(FFmpegPostProcessor):
         # 1. https://kdenlive.org/en/project/adding-meta-data-to-mp4-video/
         # 2. https://wiki.multimedia.cx/index.php/FFmpeg_Metadata
         # 3. https://kodi.wiki/view/Video_file_tagging
-        # 4. http://atomicparsley.sourceforge.net/mpeg-4files.html
 
         add('title', ('track', 'title'))
         add('date', 'upload_date')

@@ -30,6 +30,8 @@ General rundown of the features I have added:
   - Enabled playlist metadata being saved separately to media info.json
   - Fixed issue with RTMP streams and unicode characters on Windows (because it won't be fixed in [#23765](https://github.com/ytdl-org/youtube-dl/issues/23765))
   - Extractors marked as transparent no longer have their IDs overwritten
+  - Added --remux to remux streams to an alternate container format
+  - Removed requirement for AtomicParsley to embed thumbnails in mp4/mov/m4a files
 
 
 **Note:** Since comments can take a significantly long time to scrape, for NicoNico and Youtube, you must pass a `--get-comments` flag to initiate scraping.

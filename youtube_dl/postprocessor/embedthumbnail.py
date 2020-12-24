@@ -89,37 +89,20 @@ class EmbedThumbnailPP(FFmpegPostProcessor):
             os.rename(encodeFilename(temp_filename), encodeFilename(filename))
 
         elif info['ext'] in ['m4a', 'mp4']:
-            if not check_executable('AtomicParsley', ['-v']):
-                raise EmbedThumbnailPPError('AtomicParsley was not found. Please install.')
 
-            cmd = [encodeFilename('AtomicParsley', True),
-                   encodeFilename(filename, True),
-                   encodeArgument('--artwork'),
-                   encodeFilename(thumbnail_filename, True),
-                   encodeArgument('-o'),
-                   encodeFilename(temp_filename, True)]
+            options = [
+                '-c', 'copy', '-map', '0', '-map', '1',
+                '-disposition:1', 'attached_pic']
 
-            self._downloader.to_screen('[atomicparsley] Adding thumbnail to "%s"' % filename)
+            self._downloader.to_screen('[ffmpeg] Adding thumbnail to "%s"' % filename)
 
-            if self._downloader.params.get('verbose', False):
-                self._downloader.to_screen('[debug] AtomicParsley command line: %s' % shell_quote(cmd))
-
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            stdout, stderr = p.communicate()
-
-            if p.returncode != 0:
-                msg = stderr.decode('utf-8', 'replace').strip()
-                raise EmbedThumbnailPPError(msg)
+            self.run_ffmpeg_multiple_files([filename, thumbnail_filename], temp_filename, options)
 
             if not self._already_have_thumbnail:
                 os.remove(encodeFilename(thumbnail_filename))
-            # for formats that don't support thumbnails (like 3gp) AtomicParsley
-            # won't create to the temporary file
-            if b'No changes' in stdout:
-                self._downloader.report_warning('The file format doesn\'t support embedding a thumbnail')
-            else:
-                os.remove(encodeFilename(filename))
-                os.rename(encodeFilename(temp_filename), encodeFilename(filename))
+            os.remove(encodeFilename(filename))
+            os.rename(encodeFilename(temp_filename), encodeFilename(filename))
+            
         else:
             raise EmbedThumbnailPPError('Only mp3 and m4a/mp4 are supported for thumbnail embedding for now.')
 
