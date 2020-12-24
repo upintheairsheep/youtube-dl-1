@@ -11,6 +11,7 @@ from .ffmpeg import (
     FFmpegMergerPP,
     FFmpegMetadataPP,
     FFmpegVideoConvertorPP,
+    FFmpegRemuxerPP,
     FFmpegSubtitlesConvertorPP,
     FFmpegSplitByTracksPP,
 )
@@ -37,6 +38,7 @@ __all__ = [
     'FFmpegPostProcessor',
     'FFmpegSubtitlesConvertorPP',
     'FFmpegVideoConvertorPP',
+    'FFmpegRemuxerPP',
     'MetadataFromTitlePP',
     'XAttrMetadataPP',
 ]

@@ -804,6 +804,10 @@ def parseOpts(overrideArguments=None):
         metavar='FORMAT', dest='recodevideo', default=None,
         help='Encode the video to another format if necessary (currently supported: mp4|flv|ogg|webm|mkv|avi)')
     postproc.add_option(
+        '--remux',
+        metavar='FORMAT', dest='remux', default=None,
+        help='Remux the media to another container format if not already in that format')
+    postproc.add_option(
         '--postprocessor-args',
         dest='postprocessor_args', metavar='ARGS',
         help='Give these arguments to the postprocessor')

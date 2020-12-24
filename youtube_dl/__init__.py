@@ -266,6 +266,11 @@ def _real_main(argv=None):
             'key': 'FFmpegVideoConvertor',
             'preferedformat': opts.recodevideo,
         })
+    if opts.remux:
+        postprocessors.append({
+            'key': 'FFmpegRemuxer',
+            'preferedformat': opts.remux,
+        })
     # FFmpegMetadataPP should be run after FFmpegVideoConvertorPP and
     # FFmpegExtractAudioPP as containers before conversion may not support
     # metadata (3gp, webm, etc.)
