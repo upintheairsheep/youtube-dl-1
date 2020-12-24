@@ -88,7 +88,7 @@ class EmbedThumbnailPP(FFmpegPostProcessor):
             os.remove(encodeFilename(filename))
             os.rename(encodeFilename(temp_filename), encodeFilename(filename))
 
-        elif info['ext'] in ['m4a', 'mp4']:
+        elif info['ext'] in ['m4a', 'mp4', 'mov']:
 
             options = [
                 '-c', 'copy', '-map', '0', '-map', '1',
@@ -102,8 +102,24 @@ class EmbedThumbnailPP(FFmpegPostProcessor):
                 os.remove(encodeFilename(thumbnail_filename))
             os.remove(encodeFilename(filename))
             os.rename(encodeFilename(temp_filename), encodeFilename(filename))
-            
+
+        elif info['ext'] in ['mkv', 'mka']:
+
+            options = [
+                '-c', 'copy', '-map', '0',
+                '-attach', thumbnail_filename,
+                '-metadata:s:t', 'mimetype=image/%s' % ('png' if thumbnail_ext == 'png' else 'jpeg')]
+
+            self._downloader.to_screen('[ffmpeg] Adding thumbnail to "%s"' % filename)
+
+            self.run_ffmpeg(filename, temp_filename, options)
+
+            if not self._already_have_thumbnail:
+                os.remove(encodeFilename(thumbnail_filename))
+            os.remove(encodeFilename(filename))
+            os.rename(encodeFilename(temp_filename), encodeFilename(filename))
+
         else:
-            raise EmbedThumbnailPPError('Only mp3 and m4a/mp4 are supported for thumbnail embedding for now.')
+            raise EmbedThumbnailPPError('Only mp3, mkv/mka and m4a/mp4/mov are supported for thumbnail embedding for now.')
 
         return [], info

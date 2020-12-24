@@ -32,6 +32,7 @@ General rundown of the features I have added:
   - Extractors marked as transparent no longer have their IDs overwritten
   - Added --remux to remux streams to an alternate container format
   - Removed requirement for AtomicParsley to embed thumbnails in mp4/mov/m4a files
+  - Implemented thumbnail embedding for mkv/mka files
 
 
 **Note:** Since comments can take a significantly long time to scrape, for NicoNico and Youtube, you must pass a `--get-comments` flag to initiate scraping.
