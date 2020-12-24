@@ -384,6 +384,10 @@ class FFmpegRemuxerPP(FFmpegPostProcessor):
             self._downloader.to_screen('[ffmpeg] Not remuxing media file %s - already is in target format %s' % (path, self._preferedformat))
             return [], information
         options = ['-c', 'copy', '-map', '0']
+
+        if information['ext'] in ['mp4', 'm4a', 'mov']:
+            options.extend(['-movflags', '+faststart'])
+
         prefix, sep, oldext = path.rpartition('.')
         outpath = prefix + sep + self._preferedformat
         self._downloader.to_screen('[' + 'ffmpeg' + '] Remuxing video from %s to %s, Destination: ' % (information['ext'], self._preferedformat) + outpath)
@@ -406,14 +410,6 @@ class FFmpegEmbedSubtitlePP(FFmpegPostProcessor):
 
         filename = information['filepath']
         input_filename = filename
-
-        if self._downloader.params.get('merge_output_format') is not None:
-            filename = replace_extension(filename, self._downloader.params['merge_output_format'])
-
-            information['filepath'] = filename
-            information['ext'] = self._downloader.params['merge_output_format']
-        
-        
 
         ext = information['ext']
         sub_langs = []
@@ -539,6 +535,10 @@ class FFmpegMetadataPP(FFmpegPostProcessor):
                 f.write(metadata_file_content)
                 in_filenames.append(metadata_filename)
                 options.extend(['-map_metadata', '1'])
+
+        # if info['ext'] == 'mkv' or info['ext'] == 'mka':
+        #     info_filename = replace_extension(filename, 'info.json')
+        #     options.extend(['-attach', info_filename])
 
         self._downloader.to_screen('[ffmpeg] Adding metadata to \'%s\'' % filename)
         self.run_ffmpeg_multiple_files(in_filenames, temp_filename, options)
