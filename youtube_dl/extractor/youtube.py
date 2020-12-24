@@ -529,6 +529,48 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             }
         },
         {
+            'url': 'https://www.youtube.com/watch?v=UxxajLWwzqY',
+            'note': 'Test generic use_cipher_signature video (#897)',
+            'info_dict': {
+                'id': 'UxxajLWwzqY',
+                'ext': 'mp4',
+                'upload_date': '20120506',
+                'title': 'Icona Pop - I Love It (feat. Charli XCX) [OFFICIAL VIDEO]',
+                'alt_title': 'I Love It (feat. Charli XCX)',
+                'description': 'md5:19a2f98d9032b9311e686ed039564f63',
+                'tags': ['Icona Pop i love it', 'sweden', 'pop music', 'big beat records', 'big beat', 'charli',
+                         'xcx', 'charli xcx', 'girls', 'hbo', 'i love it', "i don't care", 'icona', 'pop',
+                         'iconic ep', 'iconic', 'love', 'it'],
+                'duration': 180,
+                'uploader': 'Icona Pop',
+                'uploader_id': 'IconaPop',
+                'uploader_url': r're:https?://(?:www\.)?youtube\.com/user/IconaPop',
+                'creator': 'Icona Pop',
+                'track': 'I Love It (feat. Charli XCX)',
+                'artist': 'Icona Pop',
+            }
+        },
+        {
+            'url': 'https://www.youtube.com/watch?v=07FYdnEawAQ',
+            'note': 'Test VEVO video with age protection (#956)',
+            'info_dict': {
+                'id': '07FYdnEawAQ',
+                'ext': 'mp4',
+                'upload_date': '20130703',
+                'title': 'Justin Timberlake - Tunnel Vision (Official Music Video) (Explicit)',
+                'alt_title': 'Tunnel Vision',
+                'description': 'md5:07dab3356cde4199048e4c7cd93471e1',
+                'duration': 419,
+                'uploader': 'justintimberlakeVEVO',
+                'uploader_id': 'justintimberlakeVEVO',
+                'uploader_url': r're:https?://(?:www\.)?youtube\.com/user/justintimberlakeVEVO',
+                'creator': 'Justin Timberlake',
+                'track': 'Tunnel Vision',
+                'artist': 'Justin Timberlake',
+                'age_limit': 18,
+            }
+        },
+        {
             'url': '//www.YouTube.com/watch?v=yZIXLfi8CZQ',
             'note': 'Embed-only video (#1746)',
             'info_dict': {
@@ -585,6 +627,42 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             },
             'skip': 'format 141 not served anymore',
         },
+        # DASH manifest with encrypted signature
+        {
+            'url': 'https://www.youtube.com/watch?v=IB3lcPjvWLA',
+            'info_dict': {
+                'id': 'IB3lcPjvWLA',
+                'ext': 'm4a',
+                'title': 'Afrojack, Spree Wilson - The Spark (Official Music Video) ft. Spree Wilson',
+                'description': 'md5:8f5e2b82460520b619ccac1f509d43bf',
+                'duration': 244,
+                'uploader': 'AfrojackVEVO',
+                'uploader_id': 'AfrojackVEVO',
+                'upload_date': '20131011',
+            },
+            'params': {
+                'youtube_include_dash_manifest': True,
+                'format': '141/bestaudio[ext=m4a]',
+            },
+        },
+        # JS player signature function name containing $
+        {
+            'url': 'https://www.youtube.com/watch?v=nfWlot6h_JM',
+            'info_dict': {
+                'id': 'nfWlot6h_JM',
+                'ext': 'm4a',
+                'title': 'Taylor Swift - Shake It Off',
+                'description': 'md5:307195cd21ff7fa352270fe884570ef0',
+                'duration': 242,
+                'uploader': 'TaylorSwiftVEVO',
+                'uploader_id': 'TaylorSwiftVEVO',
+                'upload_date': '20140818',
+            },
+            'params': {
+                'youtube_include_dash_manifest': True,
+                'format': '141/bestaudio[ext=m4a]',
+            },
+        },
         # Controversy video
         {
             'url': 'https://www.youtube.com/watch?v=T4XJQO3qol8',
@@ -615,6 +693,43 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 'upload_date': '20140605',
                 'age_limit': 18,
             },
+        },
+        # Age-gate video with encrypted signature
+        {
+            'url': 'https://www.youtube.com/watch?v=6kLq3WMV1nU',
+            'info_dict': {
+                'id': '6kLq3WMV1nU',
+                'ext': 'mp4',
+                'title': 'Dedication To My Ex (Miss That) (Lyric Video)',
+                'description': 'md5:33765bb339e1b47e7e72b5490139bb41',
+                'duration': 246,
+                'uploader': 'LloydVEVO',
+                'uploader_id': 'LloydVEVO',
+                'uploader_url': r're:https?://(?:www\.)?youtube\.com/user/LloydVEVO',
+                'upload_date': '20110629',
+                'age_limit': 18,
+            },
+        },
+        # video_info is None (https://github.com/ytdl-org/youtube-dl/issues/4421)
+        # YouTube Red ad is not captured for creator
+        {
+            'url': '__2ABJjxzNo',
+            'info_dict': {
+                'id': '__2ABJjxzNo',
+                'ext': 'mp4',
+                'duration': 266,
+                'upload_date': '20100430',
+                'uploader_id': 'deadmau5',
+                'uploader_url': r're:https?://(?:www\.)?youtube\.com/user/deadmau5',
+                'creator': 'Dada Life, deadmau5',
+                'description': 'md5:12c56784b8032162bb936a5f76d55360',
+                'uploader': 'deadmau5',
+                'title': 'Deadmau5 - Some Chords (HD)',
+                'alt_title': 'This Machine Kills Some Chords',
+            },
+            'expected_warnings': [
+                'DASH manifest missing',
+            ]
         },
         # Olympics (https://github.com/ytdl-org/youtube-dl/issues/4431)
         {
@@ -878,6 +993,11 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             'only_matching': True,
         },
         {
+            # YouTube Red paid video (https://github.com/ytdl-org/youtube-dl/issues/10059)
+            'url': 'https://www.youtube.com/watch?v=i1Ko8UG-Tdo',
+            'only_matching': True,
+        },
+        {
             # Rental video preview
             'url': 'https://www.youtube.com/watch?v=yYr8q0y5Jfg',
             'info_dict': {
@@ -954,6 +1074,11 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             'only_matching': True,
         },
         {
+            # DRM protected
+            'url': 'https://www.youtube.com/watch?v=s7_qI6_mIXc',
+            'only_matching': True,
+        },
+        {
             # Video with unsupported adaptive stream type formats
             'url': 'https://www.youtube.com/watch?v=Z4Vy8R84T1U',
             'info_dict': {
@@ -975,8 +1100,116 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             'skip': 'not actual anymore',
         },
         {
+            # Youtube Music Auto-generated description
+            'url': 'https://music.youtube.com/watch?v=MgNrAu2pzNs',
+            'info_dict': {
+                'id': 'MgNrAu2pzNs',
+                'ext': 'mp4',
+                'title': 'Voyeur Girl',
+                'description': 'md5:7ae382a65843d6df2685993e90a8628f',
+                'upload_date': '20190312',
+                'uploader': 'Stephen - Topic',
+                'uploader_id': 'UC-pWHpBjdGG69N9mM2auIAA',
+                'artist': 'Stephen',
+                'track': 'Voyeur Girl',
+                'album': 'it\'s too much love to know my dear',
+                'release_date': '20190313',
+                'release_year': 2019,
+            },
+            'params': {
+                'skip_download': True,
+            },
+        },
+        {
+            # Youtube Music Auto-generated description
+            # Retrieve 'artist' field from 'Artist:' in video description
+            # when it is present on youtube music video
+            'url': 'https://www.youtube.com/watch?v=k0jLE7tTwjY',
+            'info_dict': {
+                'id': 'k0jLE7tTwjY',
+                'ext': 'mp4',
+                'title': 'Latch Feat. Sam Smith',
+                'description': 'md5:3cb1e8101a7c85fcba9b4fb41b951335',
+                'upload_date': '20150110',
+                'uploader': 'Various Artists - Topic',
+                'uploader_id': 'UCNkEcmYdjrH4RqtNgh7BZ9w',
+                'artist': 'Disclosure',
+                'track': 'Latch Feat. Sam Smith',
+                'album': 'Latch Featuring Sam Smith',
+                'release_date': '20121008',
+                'release_year': 2012,
+            },
+            'params': {
+                'skip_download': True,
+            },
+        },
+        {
+            # Youtube Music Auto-generated description
+            # handle multiple artists on youtube music video
+            'url': 'https://www.youtube.com/watch?v=74qn0eJSjpA',
+            'info_dict': {
+                'id': '74qn0eJSjpA',
+                'ext': 'mp4',
+                'title': 'Eastside',
+                'description': 'md5:290516bb73dcbfab0dcc4efe6c3de5f2',
+                'upload_date': '20180710',
+                'uploader': 'Benny Blanco - Topic',
+                'uploader_id': 'UCzqz_ksRu_WkIzmivMdIS7A',
+                'artist': 'benny blanco, Halsey, Khalid',
+                'track': 'Eastside',
+                'album': 'Eastside',
+                'release_date': '20180713',
+                'release_year': 2018,
+            },
+            'params': {
+                'skip_download': True,
+            },
+        },
+        {
+            # Youtube Music Auto-generated description
+            # handle youtube music video with release_year and no release_date
+            'url': 'https://www.youtube.com/watch?v=-hcAI0g-f5M',
+            'info_dict': {
+                'id': '-hcAI0g-f5M',
+                'ext': 'mp4',
+                'title': 'Put It On Me',
+                'description': 'md5:f6422397c07c4c907c6638e1fee380a5',
+                'upload_date': '20180426',
+                'uploader': 'Matt Maeson - Topic',
+                'uploader_id': 'UCnEkIGqtGcQMLk73Kp-Q5LQ',
+                'artist': 'Matt Maeson',
+                'track': 'Put It On Me',
+                'album': 'The Hearse',
+                'release_date': None,
+                'release_year': 2018,
+            },
+            'params': {
+                'skip_download': True,
+            },
+        },
+        {
             'url': 'https://www.youtubekids.com/watch?v=3b8nCWDgZ6Q',
             'only_matching': True,
+        },
+        {
+            # invalid -> valid video id redirection
+            'url': 'DJztXj2GPfl',
+            'info_dict': {
+                'id': 'DJztXj2GPfk',
+                'ext': 'mp4',
+                'title': 'Panjabi MC - Mundian To Bach Ke (The Dictator Soundtrack)',
+                'description': 'md5:bf577a41da97918e94fa9798d9228825',
+                'upload_date': '20090125',
+                'uploader': 'Prochorowka',
+                'uploader_id': 'Prochorowka',
+                'uploader_url': r're:https?://(?:www\.)?youtube\.com/user/Prochorowka',
+                'artist': 'Panjabi MC',
+                'track': 'Beware of the Boys (Mundian to Bach Ke) - Motivo Hi-Lectro Remix',
+                'album': 'Beware of the Boys (Mundian To Bach Ke)',
+            },
+            'params': {
+                'skip_download': True,
+            },
         }
     ]
 
@@ -1000,6 +1233,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         """Indicate the download will use the RTMP protocol."""
         self.to_screen('RTMP download detected')
 
+    def _signature_cache_id(self, example_sig):
+        """ Return a string representation of a signature """
+        return '.'.join(compat_str(len(part)) for part in example_sig.split('.'))
+
     @classmethod
     def _extract_player_info(cls, player_url):
         for player_re in cls._PLAYER_INFO_RE:
@@ -1009,6 +1246,140 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         else:
             raise ExtractorError('Cannot identify player %r' % player_url)
         return id_m.group('ext'), id_m.group('id')
+
+    def _extract_signature_function(self, video_id, player_url, example_sig):
+        player_type, player_id = self._extract_player_info(player_url)
+
+        # Read from filesystem cache
+        func_id = '%s_%s_%s' % (
+            player_type, player_id, self._signature_cache_id(example_sig))
+        assert os.path.basename(func_id) == func_id
+
+        cache_spec = self._downloader.cache.load('youtube-sigfuncs', func_id)
+        if cache_spec is not None:
+            return lambda s: ''.join(s[i] for i in cache_spec)
+
+        download_note = (
+            'Downloading player %s' % player_url
+            if self._downloader.params.get('verbose') else
+            'Downloading %s player %s' % (player_type, player_id)
+        )
+        if player_type == 'js':
+            code = self._download_webpage(
+                player_url, video_id,
+                note=download_note,
+                errnote='Download of %s failed' % player_url)
+            res = self._parse_sig_js(code)
+        elif player_type == 'swf':
+            urlh = self._request_webpage(
+                player_url, video_id,
+                note=download_note,
+                errnote='Download of %s failed' % player_url)
+            code = urlh.read()
+            res = self._parse_sig_swf(code)
+        else:
+            assert False, 'Invalid player type %r' % player_type
+
+        test_string = ''.join(map(compat_chr, range(len(example_sig))))
+        cache_res = res(test_string)
+        cache_spec = [ord(c) for c in cache_res]
+
+        self._downloader.cache.store('youtube-sigfuncs', func_id, cache_spec)
+        return res
+
+    def _print_sig_code(self, func, example_sig):
+        def gen_sig_code(idxs):
+            def _genslice(start, end, step):
+                starts = '' if start == 0 else str(start)
+                ends = (':%d' % (end + step)) if end + step >= 0 else ':'
+                steps = '' if step == 1 else (':%d' % step)
+                return 's[%s%s%s]' % (starts, ends, steps)
+
+            step = None
+            # Quelch pyflakes warnings - start will be set when step is set
+            start = '(Never used)'
+            for i, prev in zip(idxs[1:], idxs[:-1]):
+                if step is not None:
+                    if i - prev == step:
+                        continue
+                    yield _genslice(start, prev, step)
+                    step = None
+                    continue
+                if i - prev in [-1, 1]:
+                    step = i - prev
+                    start = prev
+                    continue
+                else:
+                    yield 's[%d]' % prev
+            if step is None:
+                yield 's[%d]' % i
+            else:
+                yield _genslice(start, i, step)
+
+        test_string = ''.join(map(compat_chr, range(len(example_sig))))
+        cache_res = func(test_string)
+        cache_spec = [ord(c) for c in cache_res]
+        expr_code = ' + '.join(gen_sig_code(cache_spec))
+        signature_id_tuple = '(%s)' % (
+            ', '.join(compat_str(len(p)) for p in example_sig.split('.')))
+        code = ('if tuple(len(p) for p in s.split(\'.\')) == %s:\n'
+                '    return %s\n') % (signature_id_tuple, expr_code)
+        self.to_screen('Extracted signature function:\n' + code)
+
+    def _parse_sig_js(self, jscode):
+        funcname = self._search_regex(
+            (r'\b[cs]\s*&&\s*[adf]\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*(?P<sig>[a-zA-Z0-9$]+)\(',
+             r'\b[a-zA-Z0-9]+\s*&&\s*[a-zA-Z0-9]+\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*(?P<sig>[a-zA-Z0-9$]+)\(',
+             r'(?:\b|[^a-zA-Z0-9$])(?P<sig>[a-zA-Z0-9$]{2})\s*=\s*function\(\s*a\s*\)\s*{\s*a\s*=\s*a\.split\(\s*""\s*\)',
+             r'(?P<sig>[a-zA-Z0-9$]+)\s*=\s*function\(\s*a\s*\)\s*{\s*a\s*=\s*a\.split\(\s*""\s*\)',
+             # Obsolete patterns
+             r'(["\'])signature\1\s*,\s*(?P<sig>[a-zA-Z0-9$]+)\(',
+             r'\.sig\|\|(?P<sig>[a-zA-Z0-9$]+)\(',
+             r'yt\.akamaized\.net/\)\s*\|\|\s*.*?\s*[cs]\s*&&\s*[adf]\.set\([^,]+\s*,\s*(?:encodeURIComponent\s*\()?\s*(?P<sig>[a-zA-Z0-9$]+)\(',
+             r'\b[cs]\s*&&\s*[adf]\.set\([^,]+\s*,\s*(?P<sig>[a-zA-Z0-9$]+)\(',
+             r'\b[a-zA-Z0-9]+\s*&&\s*[a-zA-Z0-9]+\.set\([^,]+\s*,\s*(?P<sig>[a-zA-Z0-9$]+)\(',
+             r'\bc\s*&&\s*a\.set\([^,]+\s*,\s*\([^)]*\)\s*\(\s*(?P<sig>[a-zA-Z0-9$]+)\(',
+             r'\bc\s*&&\s*[a-zA-Z0-9]+\.set\([^,]+\s*,\s*\([^)]*\)\s*\(\s*(?P<sig>[a-zA-Z0-9$]+)\(',
+             r'\bc\s*&&\s*[a-zA-Z0-9]+\.set\([^,]+\s*,\s*\([^)]*\)\s*\(\s*(?P<sig>[a-zA-Z0-9$]+)\('),
+            jscode, 'Initial JS player signature function name', group='sig')
+
+        jsi = JSInterpreter(jscode)
+        initial_function = jsi.extract_function(funcname)
+        return lambda s: initial_function([s])
+
+    def _parse_sig_swf(self, file_contents):
+        swfi = SWFInterpreter(file_contents)
+        TARGET_CLASSNAME = 'SignatureDecipher'
+        searched_class = swfi.extract_class(TARGET_CLASSNAME)
+        initial_function = swfi.extract_function(searched_class, 'decipher')
+        return lambda s: initial_function([s])
+
+    def _decrypt_signature(self, s, video_id, player_url, age_gate=False):
+        """Turn the encrypted s field into a working signature"""
+
+        if player_url is None:
+            raise ExtractorError('Cannot decrypt signature without player_url')
+
+        if player_url.startswith('//'):
+            player_url = 'https:' + player_url
+        elif not re.match(r'https?://', player_url):
+            player_url = compat_urlparse.urljoin(
+                'https://www.youtube.com', player_url)
+        try:
+            player_id = (player_url, self._signature_cache_id(s))
+            if player_id not in self._player_cache:
+                func = self._extract_signature_function(
+                    video_id, player_url, s
+                )
+                self._player_cache[player_id] = func
+            func = self._player_cache[player_id]
+            if self._downloader.params.get('youtube_print_sig_code'):
+                self._print_sig_code(func, s)
+            return func(s)
+        except Exception as e:
+            tb = traceback.format_exc()
+            raise ExtractorError(
+                'Signature extraction failed: ' + tb, cause=e)
 
     def _get_subtitles(self, video_id, webpage):
         try:
@@ -1617,17 +1988,16 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             for fmt in streaming_formats:
                 if fmt.get('drmFamilies') or fmt.get('drm_families'):
                     continue
-
-
                 url = url_or_none(fmt.get('url'))
 
                 if not url:
                     cipher = fmt.get('cipher') or fmt.get('signatureCipher')
-
-                    if cipher:
-                        raise ExtractorError('This video is protected by a cipher and cannot be downloaded (see https://github.com/github/dmca/blob/master/2020/10/2020-10-23-RIAA.md).', expected=True)
-                    
-                    continue
+                    if not cipher:
+                        continue
+                    url_data = compat_parse_qs(cipher)
+                    url = url_or_none(try_get(url_data, lambda x: x['url'][0], compat_str))
+                    if not url:
+                        continue
                 else:
                     cipher = None
                     url_data = compat_parse_qs(compat_urllib_parse_urlparse(url).query)
@@ -2239,6 +2609,12 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             for mpd_url in dash_mpds:
                 dash_formats = {}
                 try:
+                    def decrypt_sig(mobj):
+                        s = mobj.group(1)
+                        dec_s = self._decrypt_signature(s, video_id, player_url, age_gate)
+                        return '/signature/%s' % dec_s
+
+                    mpd_url = re.sub(r'/s/([a-fA-F0-9\.]+)', decrypt_sig, mpd_url)
 
                     for df in self._extract_mpd_formats(
                             mpd_url, video_id, fatal=dash_mpd_fatal,
@@ -2600,6 +2976,10 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
         'only_matching': True,
     }, {
         'url': 'https://www.youtube.com/c/CommanderVideoHq/live',
+        'only_matching': True,
+    }, {
+        # music album playlist
+        'url': 'OLAK5uy_m4xAFdmMC5rX3Ji3g93pQe3hqLZw_9LhM',
         'only_matching': True,
     }, {
         'url': 'https://invidio.us/playlist?list=PLDIoUOhQQPlXr63I_vwF9GD8sAKh77dWU',
