@@ -204,6 +204,31 @@ class FFmpegPostProcessor(PostProcessor):
                 return mobj.group(1)
         return None
 
+    def run_ffmpeg_multiple_files_result(self, input_paths, out_path, opts):
+        self.check_version()
+
+        opts += self._configuration_args()
+
+        files_cmd = []
+        for path in input_paths:
+            files_cmd.extend([
+                encodeArgument('-i'),
+                encodeFilename(self._ffmpeg_filename_argument(path), True)
+            ])
+        cmd = [encodeFilename(self.executable, True), encodeArgument('-y')]
+        # avconv does not have repeat option
+        if self.basename == 'ffmpeg':
+            cmd += [encodeArgument('-loglevel'), encodeArgument('repeat+info')]
+        cmd += (files_cmd
+                + [encodeArgument(o) for o in opts]
+                + [encodeFilename(self._ffmpeg_filename_argument(out_path), True)])
+
+        if self._downloader.params.get('verbose', False):
+            self._downloader.to_screen('[debug] ffmpeg command line: %s' % shell_quote(cmd))
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, encoding='ascii')
+        stdout, stderr = p.communicate()
+        return stderr
+
     def run_ffmpeg_multiple_files(self, input_paths, out_path, opts):
         self.check_version()
 

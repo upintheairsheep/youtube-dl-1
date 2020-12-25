@@ -4,6 +4,10 @@ from __future__ import unicode_literals
 
 import os
 import subprocess
+import struct
+import re
+import base64
+import mutagen
 
 from .ffmpeg import FFmpegPostProcessor
 
@@ -119,7 +123,37 @@ class EmbedThumbnailPP(FFmpegPostProcessor):
             os.remove(encodeFilename(filename))
             os.rename(encodeFilename(temp_filename), encodeFilename(filename))
 
+        elif info['ext'] in ['ogg', 'opus']:
+
+            size_regex = r',\s*(\d+)x(\d+)\s*[,\[]'
+            size_result = self.run_ffmpeg_multiple_files_result([thumbnail_filename], '', [])
+            m = re.search(size_regex, size_result)
+            width = int(m.group(1))
+            height = int(m.group(2))
+
+            # https://xiph.org/flac/format.html#metadata_block_picture
+            is_png = thumbnail_ext == 'png'
+            mimetype = ('image/%s' % ('png' if is_png else 'jpeg')).encode('ascii')
+
+            data = bytearray()
+
+            data += struct.pack('>II', 3, len(mimetype))
+            data += mimetype
+            data += struct.pack('>IIIIII', 0, width, height, 8, 0, os.stat(thumbnail_filename).st_size) # 32 if is_png else 24
+
+            fin = open(thumbnail_filename, "rb")
+
+            data += fin.read()
+            fin.close()
+
+            f = mutagen.File(filename)
+            f.tags['METADATA_BLOCK_PICTURE'] = base64.b64encode(data).decode('ascii')
+            f.save()
+
+            if not self._already_have_thumbnail:
+                os.remove(encodeFilename(thumbnail_filename))
+
         else:
-            raise EmbedThumbnailPPError('Only mp3, mkv/mka and m4a/mp4/mov are supported for thumbnail embedding for now.')
+            raise EmbedThumbnailPPError('Supported filetypes for thumbnail embedding are: mp3, mkv/mka, ogg/opus, m4a/mp4/mov')
 
         return [], info

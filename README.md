@@ -33,6 +33,7 @@ General rundown of the features I have added:
   - Added --remux to remux streams to an alternate container format
   - Removed requirement for AtomicParsley to embed thumbnails in mp4/mov/m4a files
   - Implemented thumbnail embedding for mkv/mka files
+  - Implemented thumbnail embedding for ogg/opus files (via mutagen, requires pip package)
 
 
 **Note:** Since comments can take a significantly long time to scrape, for NicoNico and Youtube, you must pass a `--get-comments` flag to initiate scraping.
