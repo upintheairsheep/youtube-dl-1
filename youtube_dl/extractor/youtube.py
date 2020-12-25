@@ -2532,6 +2532,11 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
                     first_continuation = False
 
+                if 'contents' not in item_section:
+                    # continuation returned no comments?
+                    # set an empty array as to not break the for loop
+                    item_section['contents'] = []
+
                 for meta_comment in item_section['contents']:
 
                     comment = meta_comment['commentThreadRenderer']['comment']['commentRenderer']
