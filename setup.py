@@ -113,6 +113,7 @@ setup(
     packages=[
         'youtube_dl',
         'youtube_dl.extractor', 'youtube_dl.downloader',
+        'youtube_dl.extractor.anvato_token_generator',
         'youtube_dl.postprocessor'],
 
     # Provokes warning on most systems (why?!)
