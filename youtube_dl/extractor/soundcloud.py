@@ -5,6 +5,7 @@ import itertools
 import re
 import json
 import random
+import requests
 
 from .common import (
     InfoExtractor,
@@ -512,6 +513,12 @@ class SoundcloudIE(InfoExtractor):
                         size = 18
                     elif image_id == 'original':
                         i['preference'] = 10
+
+                        response = requests.head(i['url'])
+
+                        if not response.ok:
+                            continue
+                            
                     if size:
                         i.update({
                             'width': size,
