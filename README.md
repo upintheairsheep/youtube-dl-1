@@ -15,7 +15,7 @@ General rundown of the features I have added:
 - Niconico
   - Ability to download danmaku/comment subtitles for both bilibili and niconico (use `--write-sub --all-subs`)
   - Can specify more media formats and (if logged in, on some videos) can get the original quality upload (such as .swf files)
-  - Comment data support for NicoNico
+  - Comment data support for NicoNico and NicoNicoLive
   - Fixed niconico cutting out during downloads (heartbeat implementation)
   - Almost full support for live.nicovideo.jp livestreams (both RTMP and HLS)
   - Ability to download content by tag. Usage: `youtube-dl "nicosearch<desired number of results>:<tag value>"`. Example: `youtube-dl "nicosearch100:ytpmv"` will download the 100 latest videos tagged as YTPMV on niconico.

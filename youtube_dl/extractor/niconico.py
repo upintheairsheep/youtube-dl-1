@@ -9,6 +9,7 @@ import asyncio
 import websockets
 import _thread
 import queue
+import concurrent.futures
 
 
 from .common import InfoExtractor, SearchInfoExtractor
@@ -31,6 +32,7 @@ from ..utils import (
     urlencode_postdata,
     compat_urllib_parse_unquote_plus,
     get_element_by_class,
+    replace_extension,
     xpath_text,
     xpath_element,
 )
@@ -863,6 +865,75 @@ class NiconicoLiveIE(InfoExtractor):
             self._downloader.report_warning('unable to log in: bad username or password')
         return login_ok
 
+    async def handle_comment_websocket(self, uri, thread_id, stream_start_timestamp, stream_end_timestamp):
+        cookies_header = {'Cookie': self._get_cookies(uri).output(header='', sep=';')}
+
+        comments = []
+
+        async with websockets.connect(uri, extra_headers=cookies_header) as websocket:
+
+            try:
+                current_timestamp = stream_start_timestamp
+                current_res = -200 # unknown
+                current_rs = 1 # unknown
+                current_ps = 5 # unknown
+
+                while current_timestamp < stream_end_timestamp:
+
+                    initial_frame = [
+                        { "ping": { "content": "rs:%s" % (current_rs) } },
+                        { "ping": { "content": "ps:%s" % (current_ps) } },
+                        { "thread": {
+                            "thread": thread_id,
+                            "version": "20061206",
+                            "when": current_timestamp,
+                            "user_id": "guest",
+                            "res_from": current_res,
+                            "with_global": 1,
+                            "scores": 1,
+                            "nicoru": 0,
+                            "waybackkey": ""
+                        }},
+                        { "ping": { "content":"pf:%s" % (current_rs) } },
+                        { "ping": { "content":"rf:%s" % (current_ps) } }
+                    ]
+                    
+                    await websocket.send(json.dumps(initial_frame))
+
+                    while True:
+                        frame = json.loads(await websocket.recv())
+                        frame_type = list(frame.keys())[0]
+
+                        if frame_type == "ping":
+                            if 'rf' in frame['ping']['content']:
+                                # end of results
+
+                                if self._downloader.params.get('verbose', False):
+                                    self.to_screen('Downloaded %s comments (%s seconds to go)' % (len(comments), stream_end_timestamp - current_timestamp))
+
+                                # these are numbers that i've determined from analyzing the websocket in firefox
+                                # i have no clue why they're the numbers they are
+                                current_rs += 1
+                                current_ps += 5
+                                current_timestamp += 15
+
+                                break
+
+                        if frame_type == "chat":
+                            chat_obj = frame['chat']
+                            chat_obj.pop('thread', None)
+                            chat_obj['date'] -= stream_start_timestamp
+
+                            comments.append(chat_obj)
+
+                        elif frame_type == "thread":
+                            current_res = int(frame['thread']['last_res']) + 1
+
+            except websockets.exceptions.ConnectionClosed:
+                self.to_screen("Connection was closed. Exiting...")
+
+        return comments
+
     async def stream_heartbeat(self, websocket, heartbeat_interval):
         heartbeat_frame = json.dumps({'type': 'keepSeat'})
         while True:
@@ -900,6 +971,11 @@ class NiconicoLiveIE(InfoExtractor):
                     if frame_type == "stream":
                         stream_url = frame["data"]["uri"]
                         queue.put(stream_url)
+
+                    if frame_type == "room":
+                        chat_websocket_url = frame["data"]["messageServer"]["uri"]
+                        chat_thread_id = frame["data"]["threadId"]
+                        queue.put((chat_websocket_url, chat_thread_id))
 
                     elif frame_type == "seat":
                         if heartbeat:
@@ -946,6 +1022,30 @@ class NiconicoLiveIE(InfoExtractor):
             _thread.start_new_thread(self.start_heartbeat, (websocket_url, best_quality, q))
 
             playlistUrl = q.get()
+            commentData = q.get()
+
+            comments = None
+            subtitles = None
+
+            if self._downloader.params.get('getcomments', False) or self._downloader.params.get('writesubtitles', False):
+
+                self.to_screen("Downloading comments")
+
+                pool = concurrent.futures.ThreadPoolExecutor()
+
+                comments = pool.submit(asyncio.run, 
+                    self.handle_comment_websocket(commentData[0], commentData[1], int(embedded_data['program']['openTime']), int(embedded_data['program']['endTime']))
+                ).result()
+
+                self.to_screen("Converting comments to .ass format")
+
+                subtitles = {
+                    'jpn': [{
+                        'ext': 'ass',
+                        'data': NiconicoIE.CreateDanmaku(json.dumps(comments))
+                    }]
+                }
+                
 
             formats = self._extract_m3u8_formats(playlistUrl, video_id)
 
@@ -957,7 +1057,9 @@ class NiconicoLiveIE(InfoExtractor):
                 'comment_count': embedded_data['program']['statistics']['commentCount'],
                 'description': embedded_data['program']['description'],
                 'uploader': embedded_data['program']['supplier']['name'],
-                'timestamp': embedded_data['program']['openTime']
+                'timestamp': embedded_data['program']['openTime'],
+                'comments': comments,
+                'subtitles': subtitles
             }
 
         else:
@@ -1164,10 +1266,14 @@ def ReadCommentsNiconicoJson(f, fontsize):
     dom = json.load(f)
 
     for comment_dom in dom:
-        if ('chat' not in comment_dom):
+        comment = None
+
+        if ('chat' in comment_dom):
+            comment = comment_dom['chat']
+        elif ('mail' in comment_dom):
+            comment = comment_dom
+        else:
             continue
-        
-        comment = comment_dom['chat']
 
         try:
             c = comment['content']
@@ -1187,7 +1293,7 @@ def ReadCommentsNiconicoJson(f, fontsize):
                 elif mailstyle in NiconicoColorMap:
                     color = NiconicoColorMap[mailstyle]
             
-            yield (max(comment['vpos'], 0) * 0.01, comment['date'], comment['no'], c, pos, color, size, (c.count('\n') + 1) * size, CalculateLength(c) * size)
+            yield (max(comment['vpos'], 0) * 0.01, comment['date'], comment.get('no', 0), c, pos, color, size, (c.count('\n') + 1) * size, CalculateLength(c) * size)
         except (AssertionError, AttributeError, IndexError, TypeError, ValueError, KeyError):
             # logging.warning(_('Invalid comment: %s') % json.dumps(comment))
             continue
