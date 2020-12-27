@@ -257,7 +257,12 @@ class FFmpegPostProcessor(PostProcessor):
         stdout, stderr = p.communicate()
         if p.returncode != 0:
             stderr = stderr.decode('utf-8', 'replace')
-            msg = stderr.strip().split('\n')[-1]
+
+            if self._downloader.params.get('verbose', False):
+                msg = stderr.strip()
+            else:
+                msg = stderr.strip().split('\n')[-1]
+
             raise FFmpegPostProcessorError(msg)
         self.try_utime(out_path, oldest_mtime, oldest_mtime)
         
