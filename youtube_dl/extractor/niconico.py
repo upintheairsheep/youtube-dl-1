@@ -10,12 +10,14 @@ import websockets
 import _thread
 import queue
 
+
 from .common import InfoExtractor, SearchInfoExtractor
 from ..compat import (
     compat_parse_qs,
     compat_urlparse,
 )
 from ..utils import (
+    check_executable,
     determine_ext,
     dict_get,
     ExtractorError,
@@ -31,6 +33,10 @@ from ..utils import (
     get_element_by_class,
     xpath_text,
     xpath_element,
+)
+
+from ..postprocessor.ffmpeg import (
+    FFmpegPostProcessor
 )
 
 
@@ -293,10 +299,12 @@ class NiconicoIE(InfoExtractor):
 
         resolution = video_quality.get('resolution', {})
         vidQuality = video_quality.get('bitrate')
+        is_low = 'low' in video_quality['id']
 
         return {
             'url': session_response['data']['session']['content_uri'],
             'format_id': format_id,
+            'format_note': 'DMC ' + video_quality['label'],
             'ext': 'mp4',  # Session API are used in HTML5, which always serves mp4
             'abr': float_or_none(audio_quality.get('bitrate'), 1000),
             # So this is kind of a hack; sometimes, the bitrate is incorrectly reported as 0kbs. If this is the case,
@@ -304,7 +312,7 @@ class NiconicoIE(InfoExtractor):
             'vbr': float_or_none(vidQuality if vidQuality > 0 else extract_video_quality(video_quality.get('label')), 1000),
             'height': resolution.get('height'),
             'width': resolution.get('width'),
-            'quality': 5,
+            'quality': -2 if is_low else None,
             'heartbeat_url': heartbeat_url,
             'heartbeat_data': heartbeat_data,
             'heartbeat_interval': heartbeat_interval,
@@ -417,19 +425,46 @@ class NiconicoIE(InfoExtractor):
         
         if api_data['video'].get('smileInfo'):  # "Old" HTML5 videos
             video_url = api_data['video']['smileInfo']['url']
-            is_quality = (api_data['video']['smileInfo']['currentQualityId'] != 'low')
+            is_quality = not video_url.endswith('low')
+
+
+            # Invoking ffprobe to determine resolution
+
+            pp = FFmpegPostProcessor(self._downloader)
+            cookies = self._get_cookies('https://nicovideo.jp').output(header='', sep='; path=/; domain=nicovideo.jp;\n')
+            
+            self.to_screen('%s: %s' % (video_id, 'Checking smile format with ffprobe'))
+            
+            metadata = pp.get_metadata_object(video_url, ['-cookies', cookies])
+
+
+            v_stream, a_stream = (metadata['streams'][0], metadata['streams'][1]) \
+                if metadata['streams'][0]['codec_type'] == 'video' \
+                else (metadata['streams'][1], metadata['streams'][0])
+
+            ext = 'flv' if metadata['format']['format_name'] == 'flv' else 'mp4'
 
             formats.append({
                 'url': video_url,
-                'ext': 'mp4',
+                'ext': ext,
                 'format_id': 'smile_high' if is_quality else 'smile_low',
                 'format_note': 'High quality smile video' if is_quality else 'Low quality smile video',
-                'container': 'mp4',
-                'quality': 3 if is_quality else -1,
+                'container': ext,
+
+                'vcodec': v_stream['codec_name'],
+                'acodec': a_stream['codec_name'],
+                'width': int(v_stream['width']),
+                'height': int(v_stream['height']),
+                'tbr': int(metadata['format'].get('bit_rate', None)) / 1000,
+
+                # According to compconf, smile videos from pre-2017 are always better quality than their DMC counterparts
+                # Maybe add a check for this, but it seems existing heuristics does the equivalent already
+                'source_preference': 5 if is_quality else -2,
+
                 'filesize': int(get_video_info('size_high') if is_quality else get_video_info('size_low'))
             })
             
-        self._sort_formats(formats)
+        self._sort_formats(formats, ['quality', 'height', 'width', 'tbr', 'abr', 'source_preference', 'format_id'])
 
         # Start extracting information
         title = get_video_info('title')

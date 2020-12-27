@@ -94,7 +94,7 @@ class EmbedThumbnailPP(FFmpegPostProcessor):
 
         elif info['ext'] in ['m4a', 'mp4', 'mov']:
 
-            streams = self.get_streams_object(filename)
+            streams = self.get_metadata_object(filename)['streams']
 
             options = [
                 '-c', 'copy', '-map', '0', '-map', '1',
@@ -111,7 +111,7 @@ class EmbedThumbnailPP(FFmpegPostProcessor):
 
         elif info['ext'] in ['mkv', 'mka']:
 
-            streams = self.get_streams_object(filename)
+            streams = self.get_metadata_object(filename)['streams']
 
             options = [
                 '-c', 'copy', '-map', '0',

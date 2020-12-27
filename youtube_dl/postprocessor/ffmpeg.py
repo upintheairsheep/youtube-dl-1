@@ -205,7 +205,8 @@ class FFmpegPostProcessor(PostProcessor):
                 return mobj.group(1)
         return None
 
-    def get_streams_object(self, path):
+        
+    def get_metadata_object(self, path, opts=[]):
 
         if not self.probe_available:
             raise PostProcessingError('ffprobe/avprobe not found. Please install one.')
@@ -215,11 +216,14 @@ class FFmpegPostProcessor(PostProcessor):
         cmd = [
             encodeFilename(self.probe_executable, True),
             encodeArgument('-hide_banner'),
+            encodeArgument('-show_format'),
             encodeArgument('-show_streams'),
             encodeArgument('-print_format'),
             encodeArgument('json'),
-            encodeFilename(self._ffmpeg_filename_argument(path), True)
         ]
+
+        cmd += opts
+        cmd.append(encodeFilename(self._ffmpeg_filename_argument(path), True))
 
         if self._downloader.params.get('verbose', False):
             self._downloader.to_screen('[debug] ffprobe command line: %s' % shell_quote(cmd))
@@ -227,7 +231,7 @@ class FFmpegPostProcessor(PostProcessor):
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
         stdout, stderr = p.communicate()
 
-        return json.loads(stdout.decode('utf-8', 'replace'))["streams"]
+        return json.loads(stdout.decode('utf-8', 'replace'))
 
     def run_ffmpeg_multiple_files(self, input_paths, out_path, opts):
         self.check_version()
@@ -271,11 +275,14 @@ class FFmpegPostProcessor(PostProcessor):
     def run_ffmpeg(self, path, out_path, opts):
         self.run_ffmpeg_multiple_files([path], out_path, opts)
 
-    def _ffmpeg_filename_argument(self, fn):
+    def _ffmpeg_filename_argument(self, fn : str):
         # Always use 'file:' because the filename may contain ':' (ffmpeg
         # interprets that as a protocol) or can start with '-' (-- is broken in
         # ffmpeg, see https://ffmpeg.org/trac/ffmpeg/ticket/2127 for details)
         # Also leave '-' intact in order not to break streaming to stdout.
+        if fn.startswith('http'):
+            return fn
+
         return 'file:' + fn if fn != '-' else fn
 
 
