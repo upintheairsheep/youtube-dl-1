@@ -6,6 +6,7 @@ import os
 import subprocess
 import time
 import re
+import json
 
 
 from .common import AudioConversionError, PostProcessor
@@ -260,7 +261,7 @@ class FFmpegPostProcessor(PostProcessor):
             msg = stderr.strip().split('\n')[-1]
             raise FFmpegPostProcessorError(msg)
         self.try_utime(out_path, oldest_mtime, oldest_mtime)
-
+        
     def run_ffmpeg(self, path, out_path, opts):
         self.run_ffmpeg_multiple_files([path], out_path, opts)
 
@@ -405,21 +406,42 @@ class FFmpegRemuxerPP(FFmpegPostProcessor):
 
     def run(self, information):
         path = information['filepath']
-        if information['ext'] == self._preferedformat:
-            self._downloader.to_screen('[ffmpeg] Not remuxing media file %s - already is in target format %s' % (path, self._preferedformat))
+
+        targetext = None
+
+        if '>' not in self._preferedformat:
+            targetext = self._preferedformat
+        else:
+            for pair in self._preferedformat.split('/'):
+                kv = pair.split('>')
+                if len(kv) == 1:
+                    targetext = kv[0]
+                    break
+                
+                if (kv[0].lower() == information['ext'].lower()):
+                    targetext = kv[1]
+                    break
+
+        if not targetext:
+            self._downloader.to_screen('[ffmpeg] Not remuxing media file %s - could not find a mapping for %s' % (path, information['ext']))
             return [], information
+
+        if information['ext'] == targetext:
+            self._downloader.to_screen('[ffmpeg] Not remuxing media file %s - already is in target format %s' % (path, targetext))
+            return [], information
+
         options = ['-c', 'copy', '-map', '0']
 
         if information['ext'] in ['mp4', 'm4a', 'mov']:
             options.extend(['-movflags', '+faststart'])
 
         prefix, sep, oldext = path.rpartition('.')
-        outpath = prefix + sep + self._preferedformat
-        self._downloader.to_screen('[' + 'ffmpeg' + '] Remuxing video from %s to %s, Destination: ' % (information['ext'], self._preferedformat) + outpath)
+        outpath = prefix + sep + targetext
+        self._downloader.to_screen('[' + 'ffmpeg' + '] Remuxing video from %s to %s, Destination: ' % (information['ext'], targetext) + outpath)
         self.run_ffmpeg(path, outpath, options)
         information['filepath'] = outpath
-        information['format'] = self._preferedformat
-        information['ext'] = self._preferedformat
+        information['format'] = targetext
+        information['ext'] = targetext
         return [path], information
 
 

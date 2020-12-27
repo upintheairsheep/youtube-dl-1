@@ -806,7 +806,7 @@ def parseOpts(overrideArguments=None):
     postproc.add_option(
         '--remux',
         metavar='FORMAT', dest='remux', default=None,
-        help='Remux the media to another container format if not already in that format')
+        help='You can specify multiple rules, eg. aac>m4a/mov>mp4/mkv" will remux aac to m4a, mov to mp4 and if the format was neither of them then it\'ll fall back to mkv.')
     postproc.add_option(
         '--postprocessor-args',
         dest='postprocessor_args', metavar='ARGS',

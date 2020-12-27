@@ -447,6 +447,10 @@ Alternatively, refer to the [developer instructions](#developer-instructions) fo
     --remux FORMAT                   Remux the media to another container 
                                      format if not already in that format
                                      (eg. mkv, mp4, m4a)
+                                     You can specify multiple rules, eg.
+                                     "aac>m4a/mov>mp4/mkv" will remux aac to m4a,
+                                     mov to mp4 and if the format was neither of
+                                     them then it'll fall back to mkv.
     --postprocessor-args ARGS        Give these arguments to the postprocessor
     -k, --keep-video                 Keep the video file on disk after the post-
                                      processing; the video is erased by default
