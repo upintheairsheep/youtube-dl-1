@@ -224,10 +224,10 @@ class FFmpegPostProcessor(PostProcessor):
         if self._downloader.params.get('verbose', False):
             self._downloader.to_screen('[debug] ffprobe command line: %s' % shell_quote(cmd))
         
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, encoding='utf-8')
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
         stdout, stderr = p.communicate()
 
-        return json.loads(stdout)["streams"]
+        return json.loads(stdout.decode('utf-8', 'replace'))["streams"]
 
     def run_ffmpeg_multiple_files(self, input_paths, out_path, opts):
         self.check_version()
@@ -253,7 +253,7 @@ class FFmpegPostProcessor(PostProcessor):
 
         if self._downloader.params.get('verbose', False):
             self._downloader.to_screen('[debug] ffmpeg command line: %s' % shell_quote(cmd))
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, encoding="utf-8")
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
         stdout, stderr = p.communicate()
         if p.returncode != 0:
             stderr = stderr.decode('utf-8', 'replace')
@@ -266,7 +266,7 @@ class FFmpegPostProcessor(PostProcessor):
             raise FFmpegPostProcessorError(msg)
         self.try_utime(out_path, oldest_mtime, oldest_mtime)
         
-        return stderr
+        return stderr.decode('utf-8', 'replace')
 
     def run_ffmpeg(self, path, out_path, opts):
         self.run_ffmpeg_multiple_files([path], out_path, opts)
