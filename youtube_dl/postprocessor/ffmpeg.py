@@ -224,7 +224,7 @@ class FFmpegPostProcessor(PostProcessor):
         if self._downloader.params.get('verbose', False):
             self._downloader.to_screen('[debug] ffprobe command line: %s' % shell_quote(cmd))
         
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, encoding='ascii')
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, encoding='utf-8')
         stdout, stderr = p.communicate()
 
         return json.loads(stdout)["streams"]
@@ -253,7 +253,7 @@ class FFmpegPostProcessor(PostProcessor):
 
         if self._downloader.params.get('verbose', False):
             self._downloader.to_screen('[debug] ffmpeg command line: %s' % shell_quote(cmd))
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, encoding="utf-8")
         stdout, stderr = p.communicate()
         if p.returncode != 0:
             stderr = stderr.decode('utf-8', 'replace')
