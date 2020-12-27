@@ -94,9 +94,11 @@ class EmbedThumbnailPP(FFmpegPostProcessor):
 
         elif info['ext'] in ['m4a', 'mp4', 'mov']:
 
+            streams = self.get_streams_object(filename)
+
             options = [
                 '-c', 'copy', '-map', '0', '-map', '1',
-                '-disposition:1', 'attached_pic']
+                '-disposition:%s' % (len(streams)), 'attached_pic']
 
             self._downloader.to_screen('[ffmpeg] Adding thumbnail to "%s"' % filename)
 
@@ -109,10 +111,12 @@ class EmbedThumbnailPP(FFmpegPostProcessor):
 
         elif info['ext'] in ['mkv', 'mka']:
 
+            streams = self.get_streams_object(filename)
+
             options = [
                 '-c', 'copy', '-map', '0',
                 '-attach', thumbnail_filename,
-                '-metadata:s:t', 'mimetype=image/%s' % ('png' if thumbnail_ext == 'png' else 'jpeg')]
+                '-metadata:s:%s' % (len(streams)), 'mimetype=image/%s' % ('png' if thumbnail_ext == 'png' else 'jpeg')]
 
             self._downloader.to_screen('[ffmpeg] Adding thumbnail to "%s"' % filename)
 
@@ -126,7 +130,7 @@ class EmbedThumbnailPP(FFmpegPostProcessor):
         elif info['ext'] in ['ogg', 'opus']:
 
             size_regex = r',\s*(\d+)x(\d+)\s*[,\[]'
-            size_result = self.run_ffmpeg_multiple_files_result([thumbnail_filename], '', [])
+            size_result = self.run_ffmpeg_multiple_files([thumbnail_filename], '', ['-hide_banner'])
             m = re.search(size_regex, size_result)
             width = int(m.group(1))
             height = int(m.group(2))
