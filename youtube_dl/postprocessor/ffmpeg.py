@@ -584,9 +584,14 @@ class FFmpegMetadataPP(FFmpegPostProcessor):
                 in_filenames.append(metadata_filename)
                 options.extend(['-map_metadata', '1'])
 
-        # if info['ext'] == 'mkv' or info['ext'] == 'mka':
-        #     info_filename = replace_extension(filename, 'info.json')
-        #     options.extend(['-attach', info_filename])
+        if self._downloader.params.get('writeinfojson', False) and (info['ext'] == 'mkv' or info['ext'] == 'mka'):
+            #attachment_index = len(self.get_streams_object(filename))
+
+            info_filename = replace_extension(filename, 'info.json')
+            options.extend([
+                '-attach', info_filename,
+                '-metadata:s:t', 'mimetype=application/json' #text/plain is supported by ffmpeg
+            ])
 
         self._downloader.to_screen('[ffmpeg] Adding metadata to \'%s\'' % filename)
         self.run_ffmpeg_multiple_files(in_filenames, temp_filename, options)
