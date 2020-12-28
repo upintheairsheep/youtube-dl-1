@@ -927,6 +927,9 @@ class NiconicoLiveIE(InfoExtractor):
                             comments.append(chat_obj)
 
                         elif frame_type == "thread":
+                            if 'last_res' not in frame['thread']:
+                                continue
+
                             current_res = int(frame['thread']['last_res']) + 1
 
             except websockets.exceptions.ConnectionClosed:
@@ -1037,17 +1040,53 @@ class NiconicoLiveIE(InfoExtractor):
                     self.handle_comment_websocket(commentData[0], commentData[1], int(embedded_data['program']['openTime']), int(embedded_data['program']['endTime']))
                 ).result()
 
-                self.to_screen("Converting comments to .ass format")
+                if self._downloader.params.get('writesubtitles', False):
+                    self.to_screen("Converting comments to .ass format")
 
-                subtitles = {
-                    'jpn': [{
-                        'ext': 'ass',
-                        'data': NiconicoIE.CreateDanmaku(json.dumps(comments))
-                    }]
-                }
+                    subtitles = {
+                        'jpn': [{
+                            'ext': 'ass',
+                            'data': NiconicoIE.CreateDanmaku(json.dumps(comments))
+                        }]
+                    }
+
+            
+            thumbnails = []
+
+            if 'small' in embedded_data['program']['thumbnail']:
+                thumbnails.append({
+                    'id': 'small',
+                    'width': 80,
+                    'height': 80,
+                    'url': embedded_data['program']['thumbnail']['small']
+                })
+
+            if 'large' in embedded_data['program']['thumbnail']:
+                thumbnails.append({
+                    'id': 'large',
+                    'width': 192,
+                    'height': 144,
+                    'url': embedded_data['program']['thumbnail']['large']
+                })
+
+            if 'huge' in embedded_data['program']['thumbnail']:
+                for k, huge_url in embedded_data['program']['thumbnail']['huge'].items():
+                    width, height = k.lstrip('s').split('x')
+
+                    thumbnails.append({
+                        'id': 'huge_%sx%s' % (width, height),
+                        'width': int(width),
+                        'height': int(height),
+                        'url': huge_url
+                    })
+
+            
+            nicoApi = dict(
+                (k, v) for k, v in embedded_data.items()
+                    if k in ['program', 'socialGroup', 'channel'])
                 
 
-            formats = self._extract_m3u8_formats(playlistUrl, video_id)
+            formats = self._extract_m3u8_formats(playlistUrl, video_id, ext='mp4')
 
             return {
                 'id': video_id,
@@ -1057,9 +1096,16 @@ class NiconicoLiveIE(InfoExtractor):
                 'comment_count': embedded_data['program']['statistics']['commentCount'],
                 'description': embedded_data['program']['description'],
                 'uploader': embedded_data['program']['supplier']['name'],
-                'timestamp': embedded_data['program']['openTime'],
+                'channel': embedded_data['socialGroup']['name'],
+                'channel_id': embedded_data['socialGroup']['id'],
+                'channel_url': embedded_data['socialGroup']['socialGroupPageUrl'],
+                'timestamp': int(embedded_data['program']['openTime']),
+                'begin_time': int(embedded_data['program']['beginTime']),
+                'end_time': int(embedded_data['program']['endTime']),
                 'comments': comments,
-                'subtitles': subtitles
+                'subtitles': subtitles,
+                'thumbnails': thumbnails,
+                'nicoApi': nicoApi
             }
 
         else:
