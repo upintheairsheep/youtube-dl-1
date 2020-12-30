@@ -2455,8 +2455,12 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             session_token = bytes(session_token, 'ascii').decode('unicode-escape')
 
             data = json.loads(find_value(polymer_webpage, 'var ytInitialData = ', 0, '};') + '}')
-            ncd = next(search_dict(data, 'nextContinuationData'))
-            continuations = [(ncd['continuation'], ncd['clickTrackingParams'])]
+            try:
+                ncd = next(search_dict(data, 'nextContinuationData'))
+                continuations = [(ncd['continuation'], ncd['clickTrackingParams'])]
+            # Handle videos where comments have been disabled entirely
+            except StopIteration:
+                continuations = []
 
             def get_continuation(continuation, itct, session_token, replies=False):
 
