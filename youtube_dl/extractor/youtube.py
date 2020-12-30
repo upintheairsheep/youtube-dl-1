@@ -2455,21 +2455,19 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             session_token = bytes(session_token, 'ascii').decode('unicode-escape')
 
             data = json.loads(find_value(polymer_webpage, 'var ytInitialData = ', 0, '};') + '}')
+
             try:
                 ncd = next(search_dict(data, 'nextContinuationData'))
-                continuations = [(ncd['continuation'], ncd['clickTrackingParams'])]
+                continuations = [ncd['continuation']]
             # Handle videos where comments have been disabled entirely
             except StopIteration:
                 continuations = []
 
-            def get_continuation(continuation, itct, session_token, replies=False):
+            def get_continuation(continuation, session_token, replies=False):
 
                 query = {
                         'pbj': 1,
                         'ctoken': continuation,
-                        'continuation': continuation,
-                        'itct': itct,
-                        'disable_polymer': 'false'
                 }
 
                 if replies:
@@ -2500,13 +2498,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                         return self._parse_json(content, video_id)
 
                     if (response_code == 413):
-                        #self.to_screen(json.dumps(query))
-
-                        #self.to_screen('Google API rate limit detected; waiting 30 seconds before continuing')
-                        #time.sleep(30)
-                        #continue
-
-                        # Sometimes google makes continuations that are too big to be accepted by themselves. Grade A engineering
 
                         return None
 
@@ -2518,15 +2509,23 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             first_continuation = True
 
             while continuations:
-                continuation, itct = continuations.pop()
+                continuation = continuations.pop()
 
-                comment_response = get_continuation(continuation, itct, session_token)
+                comment_response = get_continuation(continuation, session_token)
 
                 if not comment_response:
                     continue
 
                 if list(search_dict(comment_response, 'externalErrorMessage')):
                     raise ExtractorError('Error returned from server: ' + next(search_dict(comment_response, 'externalErrorMessage')))
+
+                if 'continuationContents' not in comment_response['response']:
+                    # Something is wrong here. Youtube won't accept this continuation token for some reason and responds with a user satisfaction dialog (error?)
+                    continue
+
+                # not sure if this actually helps
+                if 'xsrf_token' in comment_response:
+                    session_token = comment_response['xsrf_token']
 
                 item_section = comment_response['response']['continuationContents']['itemSectionContinuation']
 
@@ -2548,7 +2547,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     video_comments.append({
                         'id': comment['commentId'],
                         'text': ''.join([c['text'] for c in comment['contentText']['runs']]),
-                        'time_text': comment['publishedTimeText']['runs'][0]['text'],
+                        'time_text': ''.join([c['text'] for c in comment['publishedTimeText']['runs']]),
                         'author': comment.get('authorText', {}).get('simpleText', ''),
                         'votes': comment.get('voteCount', {}).get('simpleText', '0'),
                         'author_thumbnail': comment['authorThumbnail']['thumbnails'][-1]['url'],
@@ -2560,18 +2559,17 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                         continue
 
 
-                    reply_continuation = meta_comment['commentThreadRenderer']['replies']['commentRepliesRenderer']['continuations'][0]['nextContinuationData']
+                    reply_continuations = [rcn['nextContinuationData']['continuation'] for rcn in meta_comment['commentThreadRenderer']['replies']['commentRepliesRenderer']['continuations']]
 
-                    continuation = reply_continuation['continuation']
-                    itct = reply_continuation['clickTrackingParams']
-
-                    while True:
+                    while reply_continuations:
                         time.sleep(1)
 
-                        replies_data = get_continuation(continuation, itct, session_token, True)
+                        continuation = reply_continuations.pop()
+
+                        replies_data = get_continuation(continuation, session_token, True)
 
                         if not replies_data or 'continuationContents' not in replies_data[1]['response']:
-                            break
+                            continue
 
                         self.to_screen('Comments downloaded (chain %s) %s / ~ %s' % (comment['commentId'], len(video_comments), expected_video_comment_count))
 
@@ -2583,7 +2581,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                             video_comments.append({
                                 'id': reply_comment['commentId'],
                                 'text': ''.join([c['text'] for c in reply_comment['contentText']['runs']]),
-                                'time_text': reply_comment['publishedTimeText']['runs'][0]['text'],
+                                'time_text': ''.join([c['text'] for c in reply_comment['publishedTimeText']['runs']]),
                                 'author': reply_comment.get('authorText', {}).get('simpleText', ''),
                                 'votes': reply_comment.get('voteCount', {}).get('simpleText', '0'),
                                 'author_thumbnail': reply_comment['authorThumbnail']['thumbnails'][-1]['url'],
@@ -2592,17 +2590,14 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
                         
                         if 'continuations' not in reply_comment_meta or len(reply_comment_meta['continuations']) == 0:
-                            break
+                            continue
                         
-                        continuation = reply_comment_meta['continuations'][0]['nextContinuationData']['continuation']
-                        itct = reply_comment_meta['continuations'][0]['nextContinuationData']['clickTrackingParams']
+                        reply_continuations += [rcn['nextContinuationData']['continuation'] for rcn in reply_comment_meta['continuations']]
 
                 self.to_screen('Comments downloaded %s / ~ %s' % (len(video_comments), expected_video_comment_count))
 
                 if 'continuations' in item_section:
-                    continuations = [(ncd['nextContinuationData']['continuation'], ncd['nextContinuationData']['clickTrackingParams'])
-                                    for ncd in item_section['continuations']] + continuations
-
+                    continuations += [ncd['nextContinuationData']['continuation'] for ncd in item_section['continuations']]
 
                 time.sleep(1)
 
