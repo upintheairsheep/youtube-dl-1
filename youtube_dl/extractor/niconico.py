@@ -336,7 +336,7 @@ class NiconicoIE(InfoExtractor):
                     return ret
 
 
-        extension = get_video_info('movie_type')
+        extension = get_video_info('movie_type') or 'mp4'
 
         formats = []
 
@@ -365,7 +365,8 @@ class NiconicoIE(InfoExtractor):
                 webpage, 'watch api data', default=None)
             
             if watch_api_data_string == None:
-                    self._downloader.report_warning('Could not get flv info, as it requires logging in')
+
+                self._downloader.report_warning('Could not get flv info as it requires logging in, or the endpoint has been decommissioned')
 
             else:
 
@@ -377,7 +378,7 @@ class NiconicoIE(InfoExtractor):
                         raise ExtractorError('The video has been deleted.',
                                             expected=True)
                     elif 'closed' in flv_info:
-                        self._downloader.report_warning('Could not get flv info, as it requires logging in')
+                        self._downloader.report_warning('Could not get flv info as it requires logging in, or the endpoint has been decommissioned')
                     elif 'error' in flv_info:
                         raise ExtractorError('%s reports error: %s' % (
                             self.IE_NAME, flv_info['error'][0]), expected=True)
@@ -446,6 +447,12 @@ class NiconicoIE(InfoExtractor):
 
             ext = 'flv' if metadata['format']['format_name'] == 'flv' else 'mp4'
 
+            # Community restricted videos seem to have issues with the thumb API not returning anything at all
+            filesize = int(
+                (get_video_info('size_high') if is_quality else get_video_info('size_low'))
+                or metadata['format']['size']
+            )
+
             formats.append({
                 'url': video_url,
                 'ext': ext,
@@ -463,19 +470,20 @@ class NiconicoIE(InfoExtractor):
                 # Maybe add a check for this, but it seems existing heuristics does the equivalent already
                 'source_preference': 5 if is_quality else -2,
 
-                'filesize': int(get_video_info('size_high') if is_quality else get_video_info('size_low'))
+                'filesize': filesize,
             })
             
         self._sort_formats(formats, ['quality', 'height', 'width', 'tbr', 'abr', 'source_preference', 'format_id'])
 
         # Start extracting information
-        title = get_video_info('title')
-        if not title:
-            title = self._og_search_title(webpage, default=None)
-        if not title:
-            title = self._html_search_regex(
+        title = (
+            get_video_info('title')
+            or api_data['video'].get('title')
+            or self._og_search_title(webpage, default=None)
+            or self._html_search_regex(
                 r'<span[^>]+class="videoHeaderTitle"[^>]*>([^<]+)</span>',
                 webpage, 'video title')
+        )
 
         watch_api_data_string = self._html_search_regex(
             r'<div[^>]+id="watchAPIDataContainer"[^>]+>([^<]+)</div>',
@@ -485,14 +493,24 @@ class NiconicoIE(InfoExtractor):
 
         thumbnail = (
             self._html_search_regex(r'<meta property="og:image" content="([^"]+)">', webpage, 'thumbnail data', default=None)
+            or api_data['video'].get('largeThumbnailURL')
+            or api_data['video'].get('thumbnailURL')
             or get_video_info(['largeThumbnailURL', 'thumbnail_url', 'thumbnailURL'])
             or self._html_search_meta('image', webpage, 'thumbnail', default=None)
-            or video_detail.get('thumbnail'))
+            or video_detail.get('thumbnail')
+        )
 
-        description = get_video_info('description')
+        description = (
+            api_data['video'].get('description')
+            or get_video_info('description') # this cannot go infront of the json API check as on community videos the description is simply "community"
+        )
 
-        timestamp = (parse_iso8601(get_video_info('first_retrieve'))
-                     or unified_timestamp(get_video_info('postedDateTime')))
+        timestamp = (
+            parse_iso8601(get_video_info('first_retrieve'))
+            or unified_timestamp(get_video_info('postedDateTime'))
+            or unified_timestamp(api_data['video'].get('postedDateTime'))
+        )
+
         if not timestamp:
             match = self._html_search_meta('datePublished', webpage, 'date published', default=None)
             if match:
@@ -502,18 +520,26 @@ class NiconicoIE(InfoExtractor):
                 video_detail['postedAt'].replace('/', '-'),
                 delimiter=' ', timezone=datetime.timedelta(hours=9))
 
-        view_count = int_or_none(get_video_info(['view_counter', 'viewCount']))
+        view_count = int_or_none(
+            get_video_info(['view_counter', 'viewCount'])
+            or api_data['video'].get('viewCount')
+        )
+
         if not view_count:
             match = self._html_search_regex(
                 r'>Views: <strong[^>]*>([^<]+)</strong>',
                 webpage, 'view count', default=None)
             if match:
                 view_count = int_or_none(match.replace(',', ''))
+
         view_count = view_count or video_detail.get('viewCount')
 
-        comment_count = (int_or_none(get_video_info('comment_num'))
-                         or video_detail.get('commentCount')
-                         or try_get(api_data, lambda x: x['thread']['commentCount']))
+        comment_count = (
+            int_or_none(get_video_info('comment_num'))
+            or video_detail.get('commentCount')
+            or try_get(api_data, lambda x: x['thread']['commentCount'])
+        )
+
         if not comment_count:
             match = self._html_search_regex(
                 r'>Comments: <strong[^>]*>([^<]+)</strong>',
@@ -521,11 +547,13 @@ class NiconicoIE(InfoExtractor):
             if match:
                 comment_count = int_or_none(match.replace(',', ''))
 
-        duration = (parse_duration(
-            get_video_info('length')
-            or self._html_search_meta(
-                'video:duration', webpage, 'video duration', default=None))
+        duration = (
+            parse_duration(
+                get_video_info('length')
+                or self._html_search_meta('video:duration', webpage, 'video duration', default=None)
+            )
             or video_detail.get('length')
+            or api_data['video'].get('duration')
             or get_video_info('duration'))
 
         webpage_url = get_video_info('watch_url') or url
@@ -533,8 +561,8 @@ class NiconicoIE(InfoExtractor):
         # Note: cannot use api_data.get('owner', {}) because owner may be set to "null"
         # in the JSON, which will cause None to be returned instead of {}.
         owner = try_get(api_data, lambda x: x.get('owner'), dict) or {}
-        uploader_id = get_video_info(['ch_id', 'user_id']) or owner.get('id')
-        uploader = get_video_info(['ch_name', 'user_nickname']) or owner.get('nickname')
+        uploader_id = get_video_info(['ch_id', 'user_id']) or owner.get('id') or api_data.get('community', {}).get('id')
+        uploader = get_video_info(['ch_name', 'user_nickname']) or owner.get('nickname') or api_data.get('community', {}).get('name')
 
         # Get the comments
         get_comments : bool = self._downloader.params.get('getcomments', False)
@@ -577,15 +605,18 @@ class NiconicoIE(InfoExtractor):
                     + self._process_raw_comments(raw_comments['cn'], root_thread_id, 'cn')
 
 
-
         tags_nodes = video_info_xml.findall('.//tags/tag')
         tags = list(map(lambda x: x.text, tags_nodes))
+
+        if len(tags) == 0:
+            tags = api_data['video'].get('tags') or []
         
         genre = get_video_info('genre')
 
         return {
             'id': video_id,
             'title': title,
+            'original_title': api_data['video'].get('originalTitle'),
             'formats': formats,
             'thumbnails': [
                 {
@@ -594,6 +625,7 @@ class NiconicoIE(InfoExtractor):
                 }
             ],
             'description': description,
+            'original_description': api_data['video'].get('originalDescription'),
             'uploader': uploader,
             'timestamp': timestamp,
             'uploader_id': uploader_id,
