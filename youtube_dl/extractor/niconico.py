@@ -447,7 +447,8 @@ class NiconicoIE(InfoExtractor):
                 if metadata['streams'][0]['codec_type'] == 'video' \
                 else (metadata['streams'][1], metadata['streams'][0])
 
-            ext = 'flv' if metadata['format']['format_name'] == 'flv' else 'mp4'
+            ext = 'mp4' if 'mp4' in metadata['format']['format_name'] \
+                else metadata['format']['format_name']
 
             # Community restricted videos seem to have issues with the thumb API not returning anything at all
             filesize = int(
@@ -477,8 +478,8 @@ class NiconicoIE(InfoExtractor):
                 'width': int(v_stream['width']),
                 'height': int(v_stream['height']),
                 'tbr': int(metadata['format'].get('bit_rate', None)) / 1000,
-                'abr': int(a_stream.get('bit_rate', None)) / 1000,
-                'vbr': int(v_stream.get('bit_rate', None)) / 1000,
+                'abr': int_or_none(a_stream.get('bit_rate', None), scale=1000),
+                'vbr': int_or_none(v_stream.get('bit_rate', None), scale=1000),
 
                 # According to compconf and my personal research, smile videos from pre-2017 are always better quality than their DMC counterparts
                 'source_preference': 5 if is_quality else -2,
