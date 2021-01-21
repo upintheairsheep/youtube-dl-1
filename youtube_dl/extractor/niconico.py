@@ -308,6 +308,8 @@ class NiconicoIE(InfoExtractor):
             'format_id': format_id,
             'format_note': 'DMC ' + video_quality['label'],
             'ext': 'mp4',  # Session API are used in HTML5, which always serves mp4
+            'acodec': 'aac',
+            'vcodec': 'h264', # As far as I'm aware DMC videos can only serve h264/aac combinations
             'abr': float_or_none(audio_quality.get('bitrate'), 1000),
             # So this is kind of a hack; sometimes, the bitrate is incorrectly reported as 0kbs. If this is the case,
             # extract it from the rest of the metadata we have available
@@ -453,6 +455,16 @@ class NiconicoIE(InfoExtractor):
                 or metadata['format']['size']
             )
 
+            
+
+            timestamp = (
+                parse_iso8601(get_video_info('first_retrieve'))
+                or unified_timestamp(get_video_info('postedDateTime'))
+                or unified_timestamp(api_data['video'].get('postedDateTime'))
+            )
+
+            smile_threshold_timestamp = unified_timestamp('2016/11/30 00:00:00')
+
             formats.append({
                 'url': video_url,
                 'ext': ext,
@@ -465,10 +477,12 @@ class NiconicoIE(InfoExtractor):
                 'width': int(v_stream['width']),
                 'height': int(v_stream['height']),
                 'tbr': int(metadata['format'].get('bit_rate', None)) / 1000,
+                'abr': int(a_stream.get('bit_rate', None)) / 1000,
+                'vbr': int(v_stream.get('bit_rate', None)) / 1000,
 
-                # According to compconf, smile videos from pre-2017 are always better quality than their DMC counterparts
-                # Maybe add a check for this, but it seems existing heuristics does the equivalent already
+                # According to compconf and my personal research, smile videos from pre-2017 are always better quality than their DMC counterparts
                 'source_preference': 5 if is_quality else -2,
+                'quality': 5 if timestamp < smile_threshold_timestamp and is_quality else None,
 
                 'filesize': filesize,
             })
@@ -503,12 +517,6 @@ class NiconicoIE(InfoExtractor):
         description = (
             api_data['video'].get('description')
             or get_video_info('description') # this cannot go infront of the json API check as on community videos the description is simply "community"
-        )
-
-        timestamp = (
-            parse_iso8601(get_video_info('first_retrieve'))
-            or unified_timestamp(get_video_info('postedDateTime'))
-            or unified_timestamp(api_data['video'].get('postedDateTime'))
         )
 
         if not timestamp:
