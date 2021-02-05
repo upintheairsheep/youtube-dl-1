@@ -432,6 +432,9 @@ class NiconicoIE(InfoExtractor):
             video_url = api_data['video']['smileInfo']['url']
             is_quality = not video_url.endswith('low')
 
+            if not is_quality:
+                self.report_warning('Site is currently in economy mode! You will only have access to lower quality streams')
+
 
             # Invoking ffprobe to determine resolution
 
