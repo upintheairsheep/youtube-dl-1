@@ -751,29 +751,51 @@ class NiconicoPlaylistIE(InfoExtractor):
         'playlist_mincount': 225,
     }
 
+    _api_headers = {
+        'X-Frontend-ID': '6',
+        'X-Frontend-Version': '0',
+        'X-Niconico-Language': 'en-us'
+    }
+
     def _real_extract(self, url):
         list_id = self._match_id(url)
-        webpage = self._download_webpage(url, list_id)
 
-        entries_json = self._search_regex(r'Mylist\.preload\(\d+, (\[.*\])\);',
-                                          webpage, 'entries')
-        entries_raw = json.loads(entries_json)
-        entries = [{
-            '_type': 'url',
-            'ie_key': NiconicoIE.ie_key(),
-            'url': ('http://www.nicovideo.jp/watch/%s' %
-                    entry['item_data']['video_id']),
-        } for entry in entries_raw]
+        firstJson = None
+        entries = []
+
+        currentPage = 1
+
+        while True:
+            url = 'https://nvapi.nicovideo.jp/v2/mylists/%s?pageSize=1000&page=%s' % (list_id, currentPage)
+
+            json = self._download_json(url, list_id, note='Downloading page %s' % (currentPage), headers= self._api_headers)
+
+            if currentPage == 1:
+                firstJson = json
+
+            for item in json['data']['mylist']['items']:
+                entries.append({
+                    '_type': 'url',
+                    'ie_key': NiconicoIE.ie_key(),
+                    'url': 'http://www.nicovideo.jp/watch/%s' % (item['watchId']),
+                    'playlist_id': item['itemId'],
+                    'playlist_description': item['description'],
+                    'playlist_added_on': item['addedAt']
+                })
+
+            currentPage += 1
+
+            if not json['data']['mylist']['hasNext']:
+                break
 
         return {
             '_type': 'playlist',
-            'title': self._search_regex(r'\s+name: "(.*?)"', webpage, 'title'),
-            'description': self._search_regex(r'\s+description: "(.*?)"', webpage, 'description'),
-            'user_id': self._search_regex(r'\s+user_id: (\d*?)', webpage, 'user_id'),
-            'create_time': self._search_regex(r'\s+create_time: (\d*?)', webpage, 'create_time'),
-            'update_time': self._search_regex(r'\s+update_time: (\d*?)', webpage, 'update_time'),
+            'title': firstJson['data']['mylist']['name'],
+            'description': firstJson['data']['mylist']['description'],
+            'uploader': firstJson['data']['mylist']['owner']['name'],
+            'uploader_id': firstJson['data']['mylist']['owner']['id'],
             'id': list_id,
-            'entries_metadata': entries_raw,
+            'entries_metadata': firstJson,
             'entries': entries,
         }
 
