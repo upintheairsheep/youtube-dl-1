@@ -230,7 +230,6 @@ class FFmpegPostProcessor(PostProcessor):
 
         if self._downloader.params.get('verbose', False):
             self._downloader.to_screen('[debug] ffprobe output: %s' % stdout.decode('utf-8', 'replace'))
-        stdout, stderr = p.communicate()
 
         if self._downloader.params.get('verbose', False):
             self._downloader.to_screen('[debug] ffprobe stderr: %s' % stderr.decode('utf-8', 'replace'))
