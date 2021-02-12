@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import io
+import math
 
 from .niconico import NiconicoIE
 
@@ -487,12 +488,48 @@ class BiliBiliSearchIE(SearchInfoExtractor):
     IE_DESC = 'Bilibili video search'
     _MAX_RESULTS = 100000
     _SEARCH_KEY = 'bilisearch'
-    MAX_NUMBER_OF_RESULTS = 1000
+    MAX_NUMBER_OF_RESULTS_NORMAL = 1000
+    MAX_NUMBER_OF_RESULTS_SPECIAL = 100000
 
     def _get_n_results(self, query, n):
         """Get a specified number of results for a query"""
+        # https://api.bilibili.com/x/web-interface/newlist?rid=26&type=1&pn=1&ps=20&jsonp=jsonp
 
         entries = []
+
+        # There are a few predefined categories which allow extraction of all videos
+        # If this is one of those categories, use that API instead
+        if query in ['音MAD']:
+            api_url = "https://api.bilibili.com/x/web-interface/newlist?rid=26&type=1&ps=20&jsonp=jsonp"
+            json_str = self._download_webpage(api_url + "&pn=1", "None", query={"Search_key": query})
+            parsed_json = json.loads(json_str)
+            num_pages = math.ceil(parsed_json['data']['page']['count'] / parsed_json['data']['page']['size'])
+
+
+            # Go to the last page, add oldest items first
+            for page_number in range(num_pages,  0, -1):
+                json_str = self._download_webpage(api_url + "&pn=%s" % page_number, "None", query={"Search_key": query},
+                                                  note='Extracting results from page %s' % page_number)
+
+                parsed_json = json.loads(json_str)
+                # Ascending by publish date
+                video_list = sorted(parsed_json['data']['archives'], key=lambda video: video['pubdate'])
+                entries += map(lambda video: self.url_result("https://www.bilibili.com/video/%s" % video['bvid'],
+                                                             'BiliBili', video['bvid']), video_list)
+
+                if(len(entries) >= n or len(entries) >= BiliBiliSearchIE.MAX_NUMBER_OF_RESULTS_SPECIAL):
+                    return {
+                        '_type': 'playlist',
+                        'id': query,
+                        'entries': entries[:n]
+                    }
+
+            return {
+                '_type': 'playlist',
+                'id': query,
+                'entries': entries[:n]
+            }
+
         pageNumber = 1
 
         while True:
@@ -516,7 +553,7 @@ class BiliBiliSearchIE(SearchInfoExtractor):
                 e = self.url_result(video["arcurl"], 'BiliBili', str(video["aid"]))
                 entries.append(e)
 
-            if(len(entries) >= n or len(videos) >= BiliBiliSearchIE.MAX_NUMBER_OF_RESULTS):
+            if(len(entries) >= n or len(entries) >= BiliBiliSearchIE.MAX_NUMBER_OF_RESULTS_NORMAL):
                 return {
                     '_type': 'playlist',
                     'id': query,
