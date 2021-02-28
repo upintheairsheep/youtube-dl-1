@@ -7,6 +7,7 @@ import json
 import re
 import io
 import math
+import time
 
 from .niconico import NiconicoIE
 
@@ -508,6 +509,7 @@ class BiliBiliSearchIE(SearchInfoExtractor):
 
             # Go to the last page, add oldest items first
             for page_number in range(num_pages,  0, -1):
+                time.sleep(2)
                 json_str = self._download_webpage(api_url + "&pn=%s" % page_number, "None", query={"Search_key": query},
                                                   note='Extracting results from page %s' % page_number)
 
