@@ -142,6 +142,29 @@ class BiliBiliIE(InfoExtractor):
         page_id = mobj.group('page')
         webpage = self._download_webpage(url, video_id)
 
+        # A bit of a hack: Bilibili has the notion of video anthologies, which are similar to playlists, but
+        # all share the same video ID. If the video has no page argument, check to see if it's an anthology,
+        # and if so, return playlist entries with all videos. Else, download single video normally.
+        if page_id is None:
+            anthology_link = "https://api.bilibili.com/x/player/pagelist?bvid=%s&jsonp=jsonp" % bv_id
+            json_str = self._download_webpage(anthology_link, video_id,
+                                              note='Extracting videos in anthology')
+            parsed_json = json.loads(json_str)
+
+            entries = [{
+                '_type': 'url',
+                'ie_key': BiliBiliIE.ie_key(),
+                'url': ('https://www.bilibili.com/video/%s' %
+                        bv_id + "?p=%d" % entry['page']),
+                'id': bv_id,
+            } for entry in parsed_json["data"]]
+
+            return {
+                '_type': 'playlist',
+                'id': bv_id,
+                'entries': entries
+            }
+
         if 'anime/' not in url:
             cid = self._search_regex(
                 r'\bcid(?:["\']:|=)(\d+),["\']page(?:["\']:|=)' + str(page_id), webpage, 'cid',
@@ -227,6 +250,15 @@ class BiliBiliIE(InfoExtractor):
             ('<h1[^>]+\btitle=(["\'])(?P<title>(?:(?!\1).)+)\1',
              '(?s)<h1[^>]*>(?P<title>.+?)</h1>'), webpage, 'title',
             group='title') + ('_p' + str(page_id) if page_id is not None else '')
+
+        # Add the part value in for anthologies
+        if page_id is not None:
+            anthology_link = "https://api.bilibili.com/x/player/pagelist?bvid=%s&jsonp=jsonp" % bv_id
+            json_str = self._download_webpage(anthology_link, video_id,
+                                          note='Extracting videos in anthology')
+            parsed_json = json.loads(json_str)
+            title = title + "-" + parsed_json['data'][int(page_id) - 1]['part']
+
         description = self._html_search_meta('description', webpage)
         timestamp = unified_timestamp(self._html_search_regex(
             r'<time[^>]+datetime="([^"]+)"', webpage, 'upload time',
