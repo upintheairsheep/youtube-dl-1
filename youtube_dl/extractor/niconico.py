@@ -802,6 +802,40 @@ class NiconicoPlaylistIE(InfoExtractor):
             'entries': entries,
         }
 
+class NiconicoChannelIE(InfoExtractor):
+    _VALID_URL = r'https?://(?:www\.)?nicovideo\.jp/user/(?P<id>\d+)'
+    # May need to add support for pagination? Need to find a user with many video uploads to test
+    _API_URL = "https://nvapi.nicovideo.jp/v1/users/%s/videos?sortKey=registeredAt&sortOrder=desc&pageSize=%s&page=%s"
+    _TEST = {}
+    _api_headers = {
+        'X-Frontend-ID': '6',
+        'X-Frontend-Version': '0',
+        'X-Niconico-Language': 'en-us'
+    }
+    _PAGE_SIZE = 100
+
+    def _real_extract(self, url):
+            list_id = self._match_id(url)
+            json_parsed = self._download_json(self._API_URL % (list_id, self._PAGE_SIZE, 1), "None", headers=self._api_headers)
+            total_count = json_parsed['data']['totalCount']
+
+            for page in range(1, math.ceil(total_count / 100.0) + 1):
+                json_parsed = self._download_json(self._API_URL % (list_id, self._PAGE_SIZE, page), "None", headers=self._api_headers)
+
+                entries = [{
+                    '_type': 'url',
+                    'ie_key': NiconicoIE.ie_key(),
+                    'url': ('https://www.nicovideo.jp/watch/%s' %
+                            entry['id']),
+                    'id': entry['id'],
+                } for entry in json_parsed["data"]["items"]]
+
+                return {
+                    '_type': 'playlist',
+                    'id': list_id,
+                    'entries': entries
+                }
+
 # USAGE: youtube-dl "nicosearch<NUMBER OF ENTRIES>:<SEARCH STRING>"
 class NicovideoIE(SearchInfoExtractor):
     IE_DESC = 'Nico video search'

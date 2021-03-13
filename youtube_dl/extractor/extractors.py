@@ -742,7 +742,7 @@ from .nick import (
     NickNightIE,
     NickRuIE,
 )
-from .niconico import NiconicoIE, NiconicoPlaylistIE, NicovideoIE, NiconicoLiveIE
+from .niconico import NiconicoIE, NiconicoPlaylistIE, NicovideoIE, NiconicoLiveIE, NiconicoChannelIE
 from .ninecninemedia import NineCNineMediaIE
 from .ninegag import NineGagIE
 from .ninenow import NineNowIE
