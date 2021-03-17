@@ -543,11 +543,8 @@ class NiconicoIE(InfoExtractor):
             if match:
                 view_count = int_or_none(match.replace(',', ''))
 
-        view_count = view_count or video_detail.get('viewCount')
-
         comment_count = (
                 api_data['video']['count'].get('comment')
-            or video_detail.get('commentCount')
             or try_get(api_data, lambda x: x['thread']['commentCount'])
         )
 
