@@ -10,7 +10,7 @@ import websockets
 import _thread
 import queue
 import concurrent.futures
-
+import dateutil.parser
 
 from .common import InfoExtractor, SearchInfoExtractor
 from ..compat import (
@@ -48,7 +48,7 @@ class NiconicoIE(InfoExtractor):
 
     _TESTS = [{
         'url': 'http://www.nicovideo.jp/watch/sm22312215',
-        'md5': 'd1a75c0823e2f629128c43e1212760f9',
+        'md5': 'a5bad06f1347452102953f323c69da34',
         'info_dict': {
             'id': 'sm22312215',
             'ext': 'mp4',
@@ -63,7 +63,6 @@ class NiconicoIE(InfoExtractor):
             'view_count': int,
             'comment_count': int,
         },
-        'skip': 'Requires an account',
     }, {
         # File downloaded with and without credentials are different, so omit
         # the md5 field
@@ -231,28 +230,28 @@ class NiconicoIE(InfoExtractor):
                 # Should at least log or something here
                 return 0
 
-        session_api_data = api_data['video']['dmcInfo']['session_api']
-        session_api_endpoint = session_api_data['urls'][0]
+        session_api_data = api_data['media']['delivery']['movie']['session']
+        # session_api_endpoint = session_api_data['urls'][0]
 
         format_id = '-'.join(map(lambda s: remove_start(s['id'], 'archive_'), [video_quality, audio_quality]))
 
         session_response = self._download_json(
-            session_api_endpoint['url'], video_id,
+            session_api_data['urls'][0]['url'], video_id,
             query={'_format': 'json'},
             headers={'Content-Type': 'application/json'},
             note='Downloading JSON metadata for %s' % format_id,
             data=json.dumps({
                 'session': {
                     'client_info': {
-                        'player_id': session_api_data['player_id'],
+                        'player_id': session_api_data['playerId'],
                     },
                     'content_auth': {
-                        'auth_type': session_api_data['auth_types'][session_api_data['protocols'][0]],
-                        'content_key_timeout': session_api_data['content_key_timeout'],
+                        'auth_type': session_api_data['authTypes'][session_api_data['protocols'][0]],
+                        'content_key_timeout': session_api_data['contentKeyTimeout'],
                         'service_id': 'nicovideo',
-                        'service_user_id': session_api_data['service_user_id']
+                        'service_user_id': session_api_data['serviceUserId']
                     },
-                    'content_id': session_api_data['content_id'],
+                    'content_id': session_api_data['contentId'],
                     'content_src_id_sets': [{
                         'content_src_ids': [{
                             'src_id_to_mux': {
@@ -265,7 +264,7 @@ class NiconicoIE(InfoExtractor):
                     'content_uri': '',
                     'keep_method': {
                         'heartbeat': {
-                            'lifetime': session_api_data['heartbeat_lifetime']
+                            'lifetime': session_api_data['heartbeatLifetime']
                         }
                     },
                     'priority': session_api_data['priority'],
@@ -275,14 +274,14 @@ class NiconicoIE(InfoExtractor):
                             'http_parameters': {
                                 'parameters': {
                                     'http_output_download_parameters': {
-                                        'use_ssl': yesno(session_api_endpoint['is_ssl']),
-                                        'use_well_known_port': yesno(session_api_endpoint['is_well_known_port']),
+                                        'use_ssl': yesno(session_api_data['urls'][0]['isSsl']),
+                                        'use_well_known_port': yesno(session_api_data['urls'][0]['isWellKnownPort']),
                                     }
                                 }
                             }
                         }
                     },
-                    'recipe_id': session_api_data['recipe_id'],
+                    'recipe_id': session_api_data['recipeId'],
                     'session_operation_auth': {
                         'session_operation_auth_by_signature': {
                             'signature': session_api_data['signature'],
@@ -294,26 +293,27 @@ class NiconicoIE(InfoExtractor):
             }).encode())
 
         # get heartbeat info
-        heartbeat_url = session_api_endpoint['url'] + '/' + session_response['data']['session']['id'] + '?_format=json&_method=PUT'
+        heartbeat_url = session_api_data['urls'][0]['url'] + '/' + session_response['data']['session']['id'] + '?_format=json&_method=PUT'
         heartbeat_data = json.dumps(session_response['data']).encode()
         # interval, convert milliseconds to seconds, then halve to make a buffer.
-        heartbeat_interval = session_api_data['heartbeat_lifetime'] / 8000
+        heartbeat_interval = session_api_data['heartbeatLifetime'] / 8000
 
-        resolution = video_quality.get('resolution', {})
-        vidQuality = video_quality.get('bitrate')
+        resolution = video_quality['metadata'].get('resolution', {})
+        vidQuality = video_quality['metadata'].get('bitrate')
         is_low = 'low' in video_quality['id']
+
 
         return {
             'url': session_response['data']['session']['content_uri'],
             'format_id': format_id,
-            'format_note': 'DMC ' + video_quality['label'],
+            'format_note': 'DMC ' + video_quality['metadata']['label'],
             'ext': 'mp4',  # Session API are used in HTML5, which always serves mp4
             'acodec': 'aac',
             'vcodec': 'h264', # As far as I'm aware DMC videos can only serve h264/aac combinations
             'abr': float_or_none(audio_quality.get('bitrate'), 1000),
             # So this is kind of a hack; sometimes, the bitrate is incorrectly reported as 0kbs. If this is the case,
             # extract it from the rest of the metadata we have available
-            'vbr': float_or_none(vidQuality if vidQuality > 0 else extract_video_quality(video_quality.get('label')), 1000),
+            'vbr': float_or_none(vidQuality if vidQuality > 0 else extract_video_quality(video_quality['metadata'].get('label')), 1000),
             'height': resolution.get('height'),
             'width': resolution.get('width'),
             'quality': -2 if is_low else None,
@@ -417,79 +417,78 @@ class NiconicoIE(InfoExtractor):
             'data-api-data="([^"]+)"', webpage,
             'API data', default='{}'), video_id)
 
-        dmc_info = api_data['video'].get('dmcInfo')
-        if dmc_info:  # "New" HTML5 videos
-            quality_info = dmc_info['quality']
+        quality_info = api_data['media']['delivery']['movie']
+        if quality_info:  # "New" HTML5 videos
             for audio_quality in quality_info['audios']:
                 for video_quality in quality_info['videos']:
-                    if not audio_quality['available'] or not video_quality['available']:
+                    if not audio_quality['isAvailable'] or not video_quality['isAvailable']:
                         continue
                     formats.append(self._extract_format_for_quality(
                         api_data, video_id, audio_quality, video_quality))
 
         
-        if api_data['video'].get('smileInfo'):  # "Old" HTML5 videos
-            video_url = api_data['video']['smileInfo']['url']
-            is_quality = not video_url.endswith('low')
-
-            if not is_quality:
-                self.report_warning('Site is currently in economy mode! You will only have access to lower quality streams')
-
-
-            # Invoking ffprobe to determine resolution
-
-            pp = FFmpegPostProcessor(self._downloader)
-            cookies = self._get_cookies('https://nicovideo.jp').output(header='', sep='; path=/; domain=nicovideo.jp;\n')
-            
-            self.to_screen('%s: %s' % (video_id, 'Checking smile format with ffprobe'))
-            
-            metadata = pp.get_metadata_object(video_url, ['-cookies', cookies])
-
-
-            v_stream, a_stream = (metadata['streams'][0], metadata['streams'][1]) \
-                if metadata['streams'][0]['codec_type'] == 'video' \
-                else (metadata['streams'][1], metadata['streams'][0])
-
-            ext = 'mp4' if 'mp4' in metadata['format']['format_name'] \
-                else metadata['format']['format_name']
-
-            # Community restricted videos seem to have issues with the thumb API not returning anything at all
-            filesize = int(
-                (get_video_info('size_high') if is_quality else get_video_info('size_low'))
-                or metadata['format']['size']
-            )
-
-            
-
-            timestamp = (
-                parse_iso8601(get_video_info('first_retrieve'))
-                or unified_timestamp(get_video_info('postedDateTime'))
-                or unified_timestamp(api_data['video'].get('postedDateTime'))
-            )
-
-            smile_threshold_timestamp = unified_timestamp('2016/11/30 00:00:00')
-
-            formats.append({
-                'url': video_url,
-                'ext': ext,
-                'format_id': 'smile_high' if is_quality else 'smile_low',
-                'format_note': 'High quality smile video' if is_quality else 'Low quality smile video',
-                'container': ext,
-
-                'vcodec': v_stream['codec_name'],
-                'acodec': a_stream['codec_name'],
-                'width': int(v_stream['width']),
-                'height': int(v_stream['height']),
-                'tbr': int(metadata['format'].get('bit_rate', None)) / 1000,
-                'abr': int_or_none(a_stream.get('bit_rate', None), scale=1000),
-                'vbr': int_or_none(v_stream.get('bit_rate', None), scale=1000),
-
-                # According to compconf and my personal research, smile videos from pre-2017 are always better quality than their DMC counterparts
-                'source_preference': 5 if is_quality else -2,
-                'quality': 5 if timestamp < smile_threshold_timestamp and is_quality else None,
-
-                'filesize': filesize,
-            })
+        # if api_data['video'].get('smileInfo'):  # "Old" HTML5 videos
+        #     video_url = api_data['video']['smileInfo']['url']
+        #     is_quality = not video_url.endswith('low')
+        #
+        #     if not is_quality:
+        #         self.report_warning('Site is currently in economy mode! You will only have access to lower quality streams')
+        #
+        #
+        #     # Invoking ffprobe to determine resolution
+        #
+        #     pp = FFmpegPostProcessor(self._downloader)
+        #     cookies = self._get_cookies('https://nicovideo.jp').output(header='', sep='; path=/; domain=nicovideo.jp;\n')
+        #
+        #     self.to_screen('%s: %s' % (video_id, 'Checking smile format with ffprobe'))
+        #
+        #     metadata = pp.get_metadata_object(video_url, ['-cookies', cookies])
+        #
+        #
+        #     v_stream, a_stream = (metadata['streams'][0], metadata['streams'][1]) \
+        #         if metadata['streams'][0]['codec_type'] == 'video' \
+        #         else (metadata['streams'][1], metadata['streams'][0])
+        #
+        #     ext = 'mp4' if 'mp4' in metadata['format']['format_name'] \
+        #         else metadata['format']['format_name']
+        #
+        #     # Community restricted videos seem to have issues with the thumb API not returning anything at all
+        #     filesize = int(
+        #         (get_video_info('size_high') if is_quality else get_video_info('size_low'))
+        #         or metadata['format']['size']
+        #     )
+        #
+        #
+        #
+        #     timestamp = (
+        #         parse_iso8601(get_video_info('first_retrieve'))
+        #         or unified_timestamp(get_video_info('postedDateTime'))
+        #         or unified_timestamp(api_data['video'].get('postedDateTime'))
+        #     )
+        #
+        #     smile_threshold_timestamp = unified_timestamp('2016/11/30 00:00:00')
+        #
+        #     formats.append({
+        #         'url': video_url,
+        #         'ext': ext,
+        #         'format_id': 'smile_high' if is_quality else 'smile_low',
+        #         'format_note': 'High quality smile video' if is_quality else 'Low quality smile video',
+        #         'container': ext,
+        #
+        #         'vcodec': v_stream['codec_name'],
+        #         'acodec': a_stream['codec_name'],
+        #         'width': int(v_stream['width']),
+        #         'height': int(v_stream['height']),
+        #         'tbr': int(metadata['format'].get('bit_rate', None)) / 1000,
+        #         'abr': int_or_none(a_stream.get('bit_rate', None), scale=1000),
+        #         'vbr': int_or_none(v_stream.get('bit_rate', None), scale=1000),
+        #
+        #         # According to compconf and my personal research, smile videos from pre-2017 are always better quality than their DMC counterparts
+        #         'source_preference': 5 if is_quality else -2,
+        #         'quality': 5 if timestamp < smile_threshold_timestamp and is_quality else None,
+        #
+        #         'filesize': filesize,
+        #     })
             
         self._sort_formats(formats, ['quality', 'height', 'width', 'tbr', 'abr', 'source_preference', 'format_id'])
 
@@ -506,8 +505,9 @@ class NiconicoIE(InfoExtractor):
         watch_api_data_string = self._html_search_regex(
             r'<div[^>]+id="watchAPIDataContainer"[^>]+>([^<]+)</div>',
             webpage, 'watch api data', default=None)
-        watch_api_data = self._parse_json(watch_api_data_string, video_id) if watch_api_data_string else {}
-        video_detail = watch_api_data.get('videoDetail', {})
+        # watch_api_data = self._parse_json(watch_api_data_string, video_id) if watch_api_data_string else {}
+
+        # video_detail = watch_api_data.get('videoDetail', {})
 
         thumbnail = (
             self._html_search_regex(r'<meta property="og:image" content="([^"]+)">', webpage, 'thumbnail data', default=None)
@@ -522,19 +522,18 @@ class NiconicoIE(InfoExtractor):
             api_data['video'].get('description')
             or get_video_info('description') # this cannot go infront of the json API check as on community videos the description is simply "community"
         )
+        session_api_data = api_data['media']['delivery']['movie']['session']
 
-        if not timestamp:
-            match = self._html_search_meta('datePublished', webpage, 'date published', default=None)
-            if match:
-                timestamp = parse_iso8601(match.replace('+', ':00+'))
-        if not timestamp and video_detail.get('postedAt'):
-            timestamp = parse_iso8601(
-                video_detail['postedAt'].replace('/', '-'),
-                delimiter=' ', timezone=datetime.timedelta(hours=9))
+        match = self._html_search_meta('datePublished', webpage, 'date published', default=None)
+        if match:
+            timestamp = parse_iso8601(match.replace('+', ':00+'))
+        else:
+            date = api_data['video']['registeredAt']
+            # FIXME lol
+            timestamp = math.floor(dateutil.parser.parse(date).timestamp())
 
         view_count = int_or_none(
-            get_video_info(['view_counter', 'viewCount'])
-            or api_data['video'].get('viewCount')
+            api_data['video']['count'].get('view')
         )
 
         if not view_count:
@@ -547,7 +546,7 @@ class NiconicoIE(InfoExtractor):
         view_count = view_count or video_detail.get('viewCount')
 
         comment_count = (
-            int_or_none(get_video_info('comment_num'))
+                api_data['video']['count'].get('comment')
             or video_detail.get('commentCount')
             or try_get(api_data, lambda x: x['thread']['commentCount'])
         )
