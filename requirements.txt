@@ -1,3 +1,5 @@
 websockets
 mutagen
 requests
+websockets
+python-dateutil
