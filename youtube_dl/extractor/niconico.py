@@ -751,10 +751,11 @@ class NiconicoChannelIE(InfoExtractor):
             json_parsed = self._download_json(self._API_URL % (list_id, self._PAGE_SIZE, 1), "None", headers=self._api_headers)
             total_count = json_parsed['data']['totalCount']
 
+            entries = []
             for page in range(1, math.ceil(total_count / 100.0) + 1):
                 json_parsed = self._download_json(self._API_URL % (list_id, self._PAGE_SIZE, page), "None", headers=self._api_headers)
 
-                entries = [{
+                curr_entries = [{
                     '_type': 'url',
                     'ie_key': NiconicoIE.ie_key(),
                     'url': ('https://www.nicovideo.jp/watch/%s' %
@@ -762,11 +763,13 @@ class NiconicoChannelIE(InfoExtractor):
                     'id': entry['id'],
                 } for entry in json_parsed["data"]["items"]]
 
-                return {
-                    '_type': 'playlist',
-                    'id': list_id,
-                    'entries': entries
-                }
+                entries += curr_entries
+
+            return {
+                '_type': 'playlist',
+                'id': list_id,
+                'entries': entries
+            }
 
 # USAGE: youtube-dl "nicosearch<NUMBER OF ENTRIES>:<SEARCH STRING>"
 class NicovideoIE(SearchInfoExtractor):
