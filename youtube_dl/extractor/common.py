@@ -3027,7 +3027,7 @@ class SearchInfoExtractor(InfoExtractor):
 
     @classmethod
     def _make_valid_url(cls):
-        return r'%s(?P<prefix>|[1-9][0-9]*|all|id[a-zA-Z]{2}[1-9][0-9]*):(?P<query>[\s\S]+)' % cls._SEARCH_KEY
+        return r'%s(?P<prefix>|[1-9][0-9]*|all|id[a-zA-Z1-9_\-]*):(?P<query>[\s\S]+)' % cls._SEARCH_KEY
 
     @classmethod
     def suitable(cls, url):

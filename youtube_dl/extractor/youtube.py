@@ -3651,6 +3651,7 @@ class YoutubeSearchIE(SearchInfoExtractor, YoutubeBaseInfoExtractor):
     _SEARCH_KEY = 'ytsearch'
     _SEARCH_PARAMS = None
     _TESTS = []
+    _FINAL_VIDEO = None
 
     def _entries(self, query, n):
         data = {
@@ -3697,6 +3698,19 @@ class YoutubeSearchIE(SearchInfoExtractor, YoutubeBaseInfoExtractor):
                 video_id = video.get('videoId')
                 if not video_id:
                     continue
+                if self._FINAL_VIDEO is not None and self._FINAL_VIDEO == video_id:
+                    return {
+                        '_type': 'url_transparent',
+                        'ie_key': YoutubeIE.ie_key(),
+                        'id': video_id,
+                        'url': video_id,
+                        'title': title,
+                        'description': description,
+                        'duration': duration,
+                        'view_count': view_count,
+                        'uploader': uploader,
+                    }
+
                 title = try_get(video, lambda x: x['title']['runs'][0]['text'], compat_str)
                 description = try_get(video, lambda x: x['descriptionSnippet']['runs'][0]['text'], compat_str)
                 duration = parse_duration(try_get(video, lambda x: x['lengthText']['simpleText'], compat_str))
@@ -3738,6 +3752,9 @@ class YoutubeSearchDateIE(YoutubeSearchIE):
     IE_DESC = 'YouTube.com searches, newest videos first'
     _SEARCH_PARAMS = 'CAI%3D'
 
+    def _get_results_until(self, query, last_video):
+        self._FINAL_VIDEO = last_video
+        return self._get_n_results(query, self._MAX_RESULTS)
 
 r"""
 class YoutubeSearchURLIE(YoutubeSearchIE):
