@@ -3699,18 +3699,7 @@ class YoutubeSearchIE(SearchInfoExtractor, YoutubeBaseInfoExtractor):
                 if not video_id:
                     continue
                 if self._FINAL_VIDEO is not None and self._FINAL_VIDEO == video_id:
-                    return {
-                        '_type': 'url_transparent',
-                        'ie_key': YoutubeIE.ie_key(),
-                        'id': video_id,
-                        'url': video_id,
-                        'title': title,
-                        'description': description,
-                        'duration': duration,
-                        'view_count': view_count,
-                        'uploader': uploader,
-                    }
-
+                    return
                 title = try_get(video, lambda x: x['title']['runs'][0]['text'], compat_str)
                 description = try_get(video, lambda x: x['descriptionSnippet']['runs'][0]['text'], compat_str)
                 duration = parse_duration(try_get(video, lambda x: x['lengthText']['simpleText'], compat_str))
@@ -3724,7 +3713,7 @@ class YoutubeSearchIE(SearchInfoExtractor, YoutubeBaseInfoExtractor):
                     '_type': 'url_transparent',
                     'ie_key': YoutubeIE.ie_key(),
                     'id': video_id,
-                    'url': video_id,
+                    'url': "https://www.youtube.com/watch?v=%s" % video_id,
                     'title': title,
                     'description': description,
                     'duration': duration,
