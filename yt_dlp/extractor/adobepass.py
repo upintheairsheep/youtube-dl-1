@@ -9,6 +9,7 @@ from .common import InfoExtractor
 from ..compat import (
     compat_kwargs,
     compat_urlparse,
+    compat_getpass
 )
 from ..utils import (
     unescapeHTML,
@@ -59,6 +60,10 @@ MSO_INFO = {
         'name': 'Charter Spectrum',
         'username_field': 'IDToken1',
         'password_field': 'IDToken2',
+    },
+    'Philo': {
+        'name': 'Philo',
+        'username_field': 'ident'
     },
     'Verizon': {
         'name': 'Verizon FiOS',
@@ -1409,7 +1414,7 @@ class AdobePassIE(InfoExtractor):
                 authn_token = None
             if not authn_token:
                 # TODO add support for other TV Providers
-                mso_id = self._downloader.params.get('ap_mso')
+                mso_id = self.get_param('ap_mso')
                 if not mso_id:
                     raise_mvpd_required()
                 username, password = self._get_login_info('ap_username', 'ap_password', mso_id)
@@ -1438,6 +1443,13 @@ class AdobePassIE(InfoExtractor):
                             provider_redirect_page, 'oauth redirect')
                         self._download_webpage(
                             oauth_redirect_url, video_id, 'Confirming auto login')
+                    elif 'automatically signed in with' in provider_redirect_page:
+                        # Seems like comcast is rolling up new way of automatically signing customers
+                        oauth_redirect_url = self._html_search_regex(
+                            r'continue:\s*"(https://oauth.xfinity.com/oauth/authorize\?.+)"', provider_redirect_page,
+                            'oauth redirect (signed)')
+                        # Just need to process the request. No useful data comes back
+                        self._download_webpage(oauth_redirect_url, video_id, 'Confirming auto login')
                     else:
                         if '<form name="signin"' in provider_redirect_page:
                             provider_login_page_res = provider_redirect_page_res
@@ -1460,6 +1472,22 @@ class AdobePassIE(InfoExtractor):
                         mvpd_confirm_page, urlh = mvpd_confirm_page_res
                         if '<button class="submit" value="Resume">Resume</button>' in mvpd_confirm_page:
                             post_form(mvpd_confirm_page_res, 'Confirming Login')
+                elif mso_id == 'Philo':
+                    # Philo has very unique authentication method
+                    self._download_webpage(
+                        'https://idp.philo.com/auth/init/login_code', video_id, 'Requesting auth code', data=urlencode_postdata({
+                            'ident': username,
+                            'device': 'web',
+                            'send_confirm_link': False,
+                            'send_token': True
+                        }))
+                    philo_code = compat_getpass('Type auth code you have received [Return]: ')
+                    self._download_webpage(
+                        'https://idp.philo.com/auth/update/login_code', video_id, 'Submitting token', data=urlencode_postdata({
+                            'token': philo_code
+                        }))
+                    mvpd_confirm_page_res = self._download_webpage_handle('https://idp.philo.com/idp/submit', video_id, 'Confirming Philo Login')
+                    post_form(mvpd_confirm_page_res, 'Confirming Login')
                 elif mso_id == 'Verizon':
                     # In general, if you're connecting from a Verizon-assigned IP,
                     # you will not actually pass your credentials.

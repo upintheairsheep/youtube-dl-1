@@ -1,6 +1,6 @@
-#compdef youtube-dl
+#compdef yt-dlp
 
-__youtube_dl() {
+__yt_dlp() {
     local curcontext="$curcontext" fileopts diropts cur prev
     typeset -A opt_args
     fileopts="{{fileopts}}"
@@ -16,6 +16,8 @@ __youtube_dl() {
                 _path_files
             elif [[ ${prev} =~ ${diropts} ]]; then
                 _path_files -/
+            elif [[ ${prev} == "--remux-video" ]]; then
+                _arguments '*: :(mp4 mkv)'
             elif [[ ${prev} == "--recode-video" ]]; then
                 _arguments '*: :(mp4 flv ogg webm mkv)'
             else
@@ -25,4 +27,4 @@ __youtube_dl() {
     esac
 }
 
-__youtube_dl
+__yt_dlp

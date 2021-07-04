@@ -89,11 +89,13 @@ class RtmpFD(FileDownloader):
                                 self.to_screen('')
                             cursor_in_new_line = True
                             self.to_screen('[rtmpdump] ' + line)
-            finally:
+                if not cursor_in_new_line:
+                    self.to_screen('')
+                return proc.wait()
+            except BaseException:  # Including KeyboardInterrupt
+                proc.kill()
                 proc.wait()
-            if not cursor_in_new_line:
-                self.to_screen('')
-            return proc.returncode
+                raise
 
         url = info_dict['url']
         player_url = info_dict.get('player_url')
@@ -115,7 +117,7 @@ class RtmpFD(FileDownloader):
 
         # Check for rtmpdump first
         if not check_executable('rtmpdump', ['-h']):
-            self.report_error('RTMP download detected but "rtmpdump" could not be run. Please install it.')
+            self.report_error('RTMP download detected but "rtmpdump" could not be run. Please install')
             return False
 
         # Download using rtmpdump. rtmpdump returns exit code 2 when

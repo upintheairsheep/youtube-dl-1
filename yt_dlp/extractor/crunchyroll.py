@@ -120,7 +120,7 @@ class CrunchyrollBaseIE(InfoExtractor):
 
 class CrunchyrollIE(CrunchyrollBaseIE, VRVIE):
     IE_NAME = 'crunchyroll'
-    _VALID_URL = r'https?://(?:(?P<prefix>www|m)\.)?(?P<url>crunchyroll\.(?:com|fr)/(?:media(?:-|/\?id=)|(?:[^/]*/){1,2}[^/?&]*?)(?P<video_id>[0-9]+))(?:[/?&]|$)'
+    _VALID_URL = r'https?://(?:(?P<prefix>www|m)\.)?(?P<url>crunchyroll\.(?:com|fr)/(?:media(?:-|/\?id=)|(?:[^/]*/){1,2}[^/?&]*?)(?P<id>[0-9]+))(?:[/?&]|$)'
     _TESTS = [{
         'url': 'http://www.crunchyroll.com/wanna-be-the-strongest-in-the-world/episode-1-an-idol-wrestler-is-born-645513',
         'info_dict': {
@@ -413,7 +413,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
     def _real_extract(self, url):
         mobj = re.match(self._VALID_URL, url)
-        video_id = mobj.group('video_id')
+        video_id = mobj.group('id')
 
         if mobj.group('prefix') == 'm':
             mobile_webpage = self._download_webpage(url, video_id, 'Downloading mobile webpage')
@@ -428,7 +428,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             r'<div class="showmedia-trailer-notice">(.+?)</div>',
             webpage, 'trailer-notice', default='')
         if note_m:
-            raise ExtractorError(note_m)
+            raise ExtractorError(note_m, expected=True)
 
         mobj = re.search(r'Page\.messaging_box_controller\.addItems\(\[(?P<msg>{.+?})\]\)', webpage)
         if mobj:
@@ -473,15 +473,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 stream.get('url'), video_id, stream.get('format'),
                 audio_lang, hardsub_lang)
             for f in vrv_formats:
-                if not hardsub_lang:
-                    f['preference'] = 1
-                language_preference = 0
-                if audio_lang == language:
-                    language_preference += 1
-                if hardsub_lang == language:
-                    language_preference += 1
-                if language_preference:
-                    f['language_preference'] = language_preference
+                f['language_preference'] = 1 if audio_lang == language else 0
+                f['quality'] = (
+                    1 if not hardsub_lang
+                    else 0 if hardsub_lang == language
+                    else -1)
             formats.extend(vrv_formats)
         if not formats:
             available_fmts = []
@@ -571,7 +567,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         'ext': 'flv',
                     })
                     formats.append(format_info)
-        self._sort_formats(formats, ('preference', 'language_preference', 'height', 'width', 'tbr', 'fps'))
+        self._sort_formats(formats)
 
         metadata = self._call_rpc_api(
             'VideoPlayer_GetMediaMetadata', video_id,

@@ -19,7 +19,7 @@ from ..utils import (
 
 
 class AWAANIE(InfoExtractor):
-    _VALID_URL = r'https?://(?:www\.)?(?:awaan|dcndigital)\.ae/(?:#/)?show/(?P<show_id>\d+)/[^/]+(?:/(?P<video_id>\d+)/(?P<season_id>\d+))?'
+    _VALID_URL = r'https?://(?:www\.)?(?:awaan|dcndigital)\.ae/(?:#/)?show/(?P<show_id>\d+)/[^/]+(?:/(?P<id>\d+)/(?P<season_id>\d+))?'
 
     def _real_extract(self, url):
         show_id, video_id, season_id = re.match(self._VALID_URL, url).groups()
@@ -48,6 +48,7 @@ class AWAANBaseIE(InfoExtractor):
             'duration': int_or_none(video_data.get('duration')),
             'timestamp': parse_iso8601(video_data.get('create_time'), ' '),
             'is_live': is_live,
+            'uploader_id': video_data.get('user_id'),
         }
 
 
@@ -107,6 +108,7 @@ class AWAANLiveIE(AWAANBaseIE):
             'title': 're:Dubai Al Oula [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$',
             'upload_date': '20150107',
             'timestamp': 1420588800,
+            'uploader_id': '71',
         },
         'params': {
             # m3u8 download

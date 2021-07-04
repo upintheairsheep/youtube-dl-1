@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import unicode_literals
 
 # Allow direct execution
@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from test.helper import FakeYDL, md5
 
 
-from youtube_dl.extractor import (
+from yt_dlp.extractor import (
     YoutubeIE,
     DailymotionIE,
     TEDIE,
@@ -64,8 +64,8 @@ class TestYoutubeSubtitles(BaseTestSubtitles):
         self.DL.params['allsubtitles'] = True
         subtitles = self.getSubtitles()
         self.assertEqual(len(subtitles.keys()), 13)
-        self.assertEqual(md5(subtitles['en']), '3cb210999d3e021bd6c7f0ea751eab06')
-        self.assertEqual(md5(subtitles['it']), '6d752b98c31f1cf8d597050c7a2cb4b5')
+        self.assertEqual(md5(subtitles['en']), '688dd1ce0981683867e7fe6fde2a224b')
+        self.assertEqual(md5(subtitles['it']), '31324d30b8430b309f7f5979a504a769')
         for lang in ['fr', 'de']:
             self.assertTrue(subtitles.get(lang) is not None, 'Subtitles for \'%s\' not extracted' % lang)
 
@@ -73,13 +73,13 @@ class TestYoutubeSubtitles(BaseTestSubtitles):
         self.DL.params['writesubtitles'] = True
         self.DL.params['subtitlesformat'] = 'ttml'
         subtitles = self.getSubtitles()
-        self.assertEqual(md5(subtitles['en']), 'e306f8c42842f723447d9f63ad65df54')
+        self.assertEqual(md5(subtitles['en']), 'c97ddf1217390906fa9fbd34901f3da2')
 
     def test_youtube_subtitles_vtt_format(self):
         self.DL.params['writesubtitles'] = True
         self.DL.params['subtitlesformat'] = 'vtt'
         subtitles = self.getSubtitles()
-        self.assertEqual(md5(subtitles['en']), '3cb210999d3e021bd6c7f0ea751eab06')
+        self.assertEqual(md5(subtitles['en']), 'ae1bd34126571a77aabd4d276b28044d')
 
     def test_youtube_automatic_captions(self):
         self.url = '8YoUxe5ncPo'
@@ -88,9 +88,15 @@ class TestYoutubeSubtitles(BaseTestSubtitles):
         subtitles = self.getSubtitles()
         self.assertTrue(subtitles['it'] is not None)
 
+    def test_youtube_no_automatic_captions(self):
+        self.url = 'QRS8MkLhQmM'
+        self.DL.params['writeautomaticsub'] = True
+        subtitles = self.getSubtitles()
+        self.assertTrue(not subtitles)
+
     def test_youtube_translated_subtitles(self):
         # This video has a subtitles track, which can be translated
-        self.url = 'Ky9eprVWzlI'
+        self.url = 'i0ZabxXmH4Y'
         self.DL.params['writeautomaticsub'] = True
         self.DL.params['subtitleslangs'] = ['it']
         subtitles = self.getSubtitles()
@@ -258,15 +264,23 @@ class TestNRKSubtitles(BaseTestSubtitles):
 
 
 class TestRaiPlaySubtitles(BaseTestSubtitles):
-    url = 'http://www.raiplay.it/video/2014/04/Report-del-07042014-cb27157f-9dd0-4aee-b788-b1f67643a391.html'
     IE = RaiPlayIE
 
-    def test_allsubtitles(self):
+    def test_subtitles_key(self):
+        self.url = 'http://www.raiplay.it/video/2014/04/Report-del-07042014-cb27157f-9dd0-4aee-b788-b1f67643a391.html'
         self.DL.params['writesubtitles'] = True
         self.DL.params['allsubtitles'] = True
         subtitles = self.getSubtitles()
         self.assertEqual(set(subtitles.keys()), set(['it']))
         self.assertEqual(md5(subtitles['it']), 'b1d90a98755126b61e667567a1f6680a')
+
+    def test_subtitles_array_key(self):
+        self.url = 'https://www.raiplay.it/video/2020/12/Report---04-01-2021-2e90f1de-8eee-4de4-ac0e-78d21db5b600.html'
+        self.DL.params['writesubtitles'] = True
+        self.DL.params['allsubtitles'] = True
+        subtitles = self.getSubtitles()
+        self.assertEqual(set(subtitles.keys()), set(['it']))
+        self.assertEqual(md5(subtitles['it']), '4b3264186fbb103508abe5311cfcb9cd')
 
 
 class TestVikiSubtitles(BaseTestSubtitles):

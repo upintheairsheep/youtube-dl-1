@@ -5,19 +5,25 @@ from .ffmpeg import (
     FFmpegPostProcessor,
     FFmpegEmbedSubtitlePP,
     FFmpegExtractAudioPP,
+    FFmpegFixupDurationPP,
     FFmpegFixupStretchedPP,
+    FFmpegFixupTimestampPP,
     FFmpegFixupM3u8PP,
     FFmpegFixupM4aPP,
     FFmpegMergerPP,
     FFmpegMetadataPP,
-    FFmpegVideoConvertorPP,
-    FFmpegRemuxerPP,
     FFmpegSubtitlesConvertorPP,
-    FFmpegSplitByTracksPP,
+    FFmpegThumbnailsConvertorPP,
+    FFmpegSplitChaptersPP,
+    FFmpegVideoConvertorPP,
+    FFmpegVideoRemuxerPP,
 )
 from .xattrpp import XAttrMetadataPP
 from .execafterdownload import ExecAfterDownloadPP
-from .metadatafromtitle import MetadataFromTitlePP
+from .metadatafromfield import MetadataFromFieldPP
+from .metadatafromfield import MetadataFromTitlePP
+from .movefilesafterdownload import MoveFilesAfterDownloadPP
+from .sponskrub import SponSkrubPP
 
 
 def get_postprocessor(key):
@@ -25,20 +31,27 @@ def get_postprocessor(key):
 
 
 __all__ = [
+    'FFmpegPostProcessor',
     'EmbedThumbnailPP',
     'ExecAfterDownloadPP',
     'FFmpegEmbedSubtitlePP',
     'FFmpegExtractAudioPP',
-    'FFmpegSplitByTracksPP',
+    'FFmpegSplitChaptersPP',
+    'FFmpegFixupDurationPP',
     'FFmpegFixupM3u8PP',
     'FFmpegFixupM4aPP',
     'FFmpegFixupStretchedPP',
+    'FFmpegFixupTimestampPP',
     'FFmpegMergerPP',
     'FFmpegMetadataPP',
-    'FFmpegPostProcessor',
     'FFmpegSubtitlesConvertorPP',
+    'FFmpegThumbnailsConvertorPP',
     'FFmpegVideoConvertorPP',
     'FFmpegRemuxerPP',
+    'FFmpegVideoRemuxerPP',
+    'MetadataFromFieldPP',
     'MetadataFromTitlePP',
+    'MoveFilesAfterDownloadPP',
+    'SponSkrubPP',
     'XAttrMetadataPP',
 ]

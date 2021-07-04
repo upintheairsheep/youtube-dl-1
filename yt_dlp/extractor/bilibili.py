@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 
 import datetime
 import hashlib
+import itertools
 import json
 import re
 import io
@@ -13,6 +14,7 @@ from .niconico import NiconicoIE
 
 from .common import InfoExtractor, SearchInfoExtractor
 from ..compat import (
+    compat_str,
     compat_parse_qs,
     compat_urlparse,
 )
@@ -21,6 +23,7 @@ from ..utils import (
     int_or_none,
     float_or_none,
     parse_iso8601,
+    try_get,
     smuggle_url,
     str_or_none,
     strip_jsonp,
@@ -39,15 +42,14 @@ class BiliBiliIE(InfoExtractor):
                             (?:
                                 video/av|
                                 anime/(?P<anime_id>\d+)/play\#
-                            )(?P<id>\d+)
-                            |
-                            video/(?:bv|BV)(?P<id_bv>[^/?#&]+)
+                            )(?P<id>\d+)|
+                            video/[bB][vV](?P<id_bv>[^/?#&]+)
                         )
                         (?:/?\?p=(?P<page>\d+))?
                     '''
 
     _TESTS = [{
-        'url': 'http://www.bilibili.tv/video/av1074402/',
+        'url': 'http://www.bilibili.com/video/av1074402/',
         'md5': '5f7d29e1a2872f3df0cf76b1f87d3788',
         'info_dict': {
             'id': '1074402',
@@ -64,6 +66,10 @@ class BiliBiliIE(InfoExtractor):
     }, {
         # Tested in BiliBiliBangumiIE
         'url': 'http://bangumi.bilibili.com/anime/1869/play#40062',
+        'only_matching': True,
+    }, {
+        # bilibili.tv
+        'url': 'http://www.bilibili.tv/video/av1074402/',
         'only_matching': True,
     }, {
         'url': 'http://bangumi.bilibili.com/anime/5802/play#100643',
@@ -116,14 +122,15 @@ class BiliBiliIE(InfoExtractor):
         # new BV video id format
         'url': 'https://www.bilibili.com/video/BV1JE411F741',
         'only_matching': True,
-    },
-        {
+    }, {
+        # Anthology
         'url': 'https://www.bilibili.com/video/BV1bK411W797',
         'info_dict': {
             'id': 'BV1bK411W797',
+            'title': '物语中的人物是如何吐槽自己的OP的'
         },
         'playlist_count': 17,
-        }]
+    }]
 
     _APP_KEY = 'iVGUTjsxvpLeuDCf'
     _BILIBILI_KEY = 'aHRmhWMLkdeMuILqORnYZocwMBpMEOdt'
@@ -149,17 +156,20 @@ class BiliBiliIE(InfoExtractor):
         page_id = mobj.group('page')
         webpage = self._download_webpage(url, video_id)
 
-        # A bit of a hack: Bilibili has the notion of video anthologies, which are similar to playlists, but
-        # all share the same video ID. If the video has no page argument, check to see if it's an anthology,
-        # and if so, return playlist entries with all videos. Else, download single video normally.
+        # Bilibili anthologies are similar to playlists but all videos share the same video ID as the anthology itself.
+        # If the video has no page argument, check to see if it's an anthology
         if page_id is None:
-            r = self._extract_anthology_entries(bv_id, video_id)
-            if r is not None:
-                return r
+            if not self.get_param('noplaylist'):
+                r = self._extract_anthology_entries(bv_id, video_id, webpage)
+                if r is not None:
+                    self.to_screen('Downloading anthology %s - add --no-playlist to just download video' % video_id)
+                    return r
+            else:
+                self.to_screen('Downloading just video %s because of --no-playlist' % video_id)
 
         if 'anime/' not in url:
             cid = self._search_regex(
-                r'\bcid(?:["\']:|=)(\d+),["\']page(?:["\']:|=)' + str(page_id), webpage, 'cid',
+                r'\bcid(?:["\']:|=)(\d+),["\']page(?:["\']:|=)' + compat_str(page_id), webpage, 'cid',
                 default=None
             ) or self._search_regex(
                 r'\bcid(?:["\']:|=)(\d+)', webpage, 'cid',
@@ -171,7 +181,7 @@ class BiliBiliIE(InfoExtractor):
                 webpage, 'player parameters'))['cid'][0]
         else:
             if 'no_bangumi_tip' not in smuggled_data:
-                self.to_screen('Downloading episode %s. To download all videos in anime %s, re-run youtube-dl with %s' % (
+                self.to_screen('Downloading episode %s. To download all videos in anime %s, re-run yt-dlp with %s' % (
                     video_id, anime_id, compat_urlparse.urljoin(url, '//bangumi.bilibili.com/anime/%s' % anime_id)))
             headers = {
                 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -188,6 +198,7 @@ class BiliBiliIE(InfoExtractor):
             cid = js['result']['cid']
 
         headers = {
+            'Accept': 'application/json',
             'Referer': url
         }
         headers.update(self.geo_verification_headers())
@@ -221,7 +232,7 @@ class BiliBiliIE(InfoExtractor):
                     formats.append({
                         'url': backup_url,
                         # backup URLs have lower priorities
-                        'preference': -2 if 'hd.mp4' in backup_url else -3,
+                        'quality': -2 if 'hd.mp4' in backup_url else -3,
                     })
 
                 for a_format in formats:
@@ -239,17 +250,19 @@ class BiliBiliIE(InfoExtractor):
             break
 
         title = self._html_search_regex(
-            ('<h1[^>]+\btitle=(["\'])(?P<title>(?:(?!\1).)+)\1',
-             '(?s)<h1[^>]*>(?P<title>.+?)</h1>'), webpage, 'title',
-            group='title') + ('_p' + str(page_id) if page_id is not None else '')
+            (r'<h1[^>]+\btitle=(["\'])(?P<title>(?:(?!\1).)+)\1',
+             r'(?s)<h1[^>]*>(?P<title>.+?)</h1>'), webpage, 'title',
+            group='title')
 
-        # Add the part value in for anthologies
+        # Get part title for anthologies
         if page_id is not None:
-            anthology_link = "https://api.bilibili.com/x/player/pagelist?bvid=%s&jsonp=jsonp" % bv_id
-            json_str = self._download_webpage(anthology_link, video_id,
-                                          note='Extracting videos in anthology')
-            parsed_json = json.loads(json_str)
-            title = title + "-" + parsed_json['data'][int(page_id) - 1]['part']
+            # TODO: The json is already downloaded by _extract_anthology_entries. Don't redownload for each video
+            part_title = try_get(
+                self._download_json(
+                    "https://api.bilibili.com/x/player/pagelist?bvid=%s&jsonp=jsonp" % bv_id,
+                    video_id, note='Extracting videos in anthology'),
+                lambda x: x['data'][int(page_id) - 1]['part'])
+            title = part_title or title
 
         description = self._html_search_meta('description', webpage)
         timestamp = unified_timestamp(self._html_search_regex(
@@ -260,7 +273,7 @@ class BiliBiliIE(InfoExtractor):
 
         # TODO 'view_count' requires deobfuscating Javascript
         info = {
-            'id': str(video_id) if page_id is None else str(video_id) + '_p' + str(page_id),
+            'id': compat_str(video_id) if page_id is None else '%s_p%s' % (video_id, page_id),
             'cid': cid,
             'title': title,
             'description': description,
@@ -270,11 +283,11 @@ class BiliBiliIE(InfoExtractor):
         }
 
         uploader_mobj = re.search(
-            r'<a[^>]+href="(?:https?:)?//space\.bilibili\.com/(?P<id>\d+)"[^>]*>(?P<name>[^<]+)',
+            r'<a[^>]+href="(?:https?:)?//space\.bilibili\.com/(?P<id>\d+)"[^>]*>\s*(?P<name>[^<]+?)\s*<',
             webpage)
         if uploader_mobj:
             info.update({
-                'uploader': uploader_mobj.group('name'),
+                'uploader': uploader_mobj.group('name').strip(),
                 'uploader_id': uploader_mobj.group('id'),
             })
 
@@ -297,13 +310,27 @@ class BiliBiliIE(InfoExtractor):
             'tags': tags,
             'raw_tags': raw_tags,
         }
+        if self.get_param('getcomments', False):
+            def get_comments():
+                comments = self._get_all_comment_pages(video_id)
+                return {
+                    'comments': comments,
+                    'comment_count': len(comments)
+                }
 
+            top_level_info['__post_extractor'] = get_comments
+
+        '''
+        # Requires https://github.com/m13253/danmaku2ass which is licenced under GPL3
+        # See https://github.com/animelover1984/youtube-dl
+        danmaku = NiconicoIE.CreateDanmaku(raw_danmaku, commentType='Bilibili', x=1024, y=576)
         entries[0]['subtitles'] = {
             'danmaku': [{
                 'ext': 'ass',
                 'data': danmaku
             }]
         }
+        '''
 
         for entry in entries:
             entry.update(info)
@@ -317,7 +344,7 @@ class BiliBiliIE(InfoExtractor):
 
             global_info = {
                 '_type': 'multi_video',
-                'id': str(video_id),
+                'id': compat_str(video_id),
                 'bv_id': bv_id,
                 'title': title,
                 'description': description,
@@ -329,79 +356,58 @@ class BiliBiliIE(InfoExtractor):
 
             return global_info
 
-    def _extract_anthology_entries(self, bv_id, video_id):
-        anthology_link = "https://api.bilibili.com/x/player/pagelist?bvid=%s&jsonp=jsonp" % bv_id
-        json_str = self._download_webpage(anthology_link, video_id,
-                                          note='Extracting videos in anthology')
-        parsed_json = json.loads(json_str)
+    def _extract_anthology_entries(self, bv_id, video_id, webpage):
+        title = self._html_search_regex(
+            (r'<h1[^>]+\btitle=(["\'])(?P<title>(?:(?!\1).)+)\1',
+             r'(?s)<h1[^>]*>(?P<title>.+?)</h1>'), webpage, 'title',
+            group='title')
+        json_data = self._download_json(
+            "https://api.bilibili.com/x/player/pagelist?bvid=%s&jsonp=jsonp" % bv_id,
+            video_id, note='Extracting videos in anthology')
 
-        entries = [{
-            '_type': 'url',
-            'ie_key': BiliBiliIE.ie_key(),
-            'url': ('https://www.bilibili.com/video/%s' %
-                    bv_id + "?p=%d" % entry['page']),
-            'id': bv_id,
-        } for entry in parsed_json["data"]]
-        if len(parsed_json["data"]) == 1:
-            return None
-
-        return {
-            '_type': 'playlist',
-            'id': bv_id,
-            'entries': entries
-        }
+        if len(json_data['data']) > 1:
+            return self.playlist_from_matches(
+                json_data['data'], bv_id, title, ie=BiliBiliIE.ie_key(),
+                getter=lambda entry: 'https://www.bilibili.com/video/%s?p=%d' % (bv_id, entry['page']))
 
     def _get_video_id_set(self, id, is_bv):
-
-        if is_bv:
-            query = {'bvid': id}
-        else:
-            query = {'aid': id}
-
-        response = self._download_json("http://api.bilibili.cn/x/web-interface/view",
-            id,
-            note='Grabbing original ID via API',
-            query=query)
+        query = {'bvid': id} if is_bv else {'aid': id}
+        response = self._download_json(
+            "http://api.bilibili.cn/x/web-interface/view",
+            id, query=query,
+            note='Grabbing original ID via API')
 
         if response['code'] == -400:
             raise ExtractorError('Video ID does not exist', expected=True, video_id=id)
-
-        if response['code'] != 0:
+        elif response['code'] != 0:
             raise ExtractorError('Unknown error occurred during API check (code %s)' % response['code'], expected=True, video_id=id)
-        
         return (response['data']['aid'], response['data']['bvid'])
-        
 
     # recursive solution to getting every page of comments for the video
     # we can stop when we reach a page without any comments
-    def _get_all_comment_pages(self, video_id, commentPageNumber = 0):
-
+    def _get_all_comment_pages(self, video_id, commentPageNumber=0):
         comment_url = "https://api.bilibili.com/x/v2/reply?jsonp=jsonp&pn=%s&type=1&oid=%s&sort=2&_=1567227301685" % (commentPageNumber, video_id)
-
-        json_str = self._download_webpage(comment_url, video_id,
-                                          note='Extracting comments from page %s' % (commentPageNumber))
-        parsed_json = json.loads(json_str)
-
-        replies = parsed_json["data"]["replies"]
-
-        if replies == None:
+        json_str = self._download_webpage(
+            comment_url, video_id,
+            note='Extracting comments from page %s' % (commentPageNumber))
+        replies = json.loads(json_str)['data']['replies']
+        if replies is None:
             return []
-
         return self._get_all_children(replies) + self._get_all_comment_pages(video_id, commentPageNumber + 1)
 
     # extracts all comments in the tree
     def _get_all_children(self, replies):
-        if replies == None:
+        if replies is None:
             return []
 
         ret = []
         for reply in replies:
-            author = reply["member"]["uname"]
-            author_id = reply["member"]["mid"]
-            id = reply["rpid"]
-            text = reply["content"]["message"]
-            timestamp = reply["ctime"]
-            parent = reply["parent"] if reply["parent"] != 0 else 'root'
+            author = reply['member']['uname']
+            author_id = reply['member']['mid']
+            id = reply['rpid']
+            text = reply['content']['message']
+            timestamp = reply['ctime']
+            parent = reply['parent'] if reply['parent'] != 0 else 'root'
 
             comment = {
                 "author": author,
@@ -415,28 +421,25 @@ class BiliBiliIE(InfoExtractor):
 
             # from the JSON, the comment structure seems arbitrarily deep, but I could be wrong.
             # Regardless, this should work.
-            ret += self._get_all_children(reply["replies"])
+            ret += self._get_all_children(reply['replies'])
 
         return ret
 
     def _get_raw_danmaku(self, video_id, cid):
-
         # This will be useful if I decide to scrape all pages instead of doing them individually
         # cid_url = "https://www.bilibili.com/widget/getPageList?aid=%s" % (video_id)
         # cid_str = self._download_webpage(cid_url, video_id, note=False)
-        # cid = json.loads(cid_str)[0]["cid"]
+        # cid = json.loads(cid_str)[0]['cid']
 
         danmaku_url = "https://comment.bilibili.com/%s.xml" % (cid)
         danmaku = self._download_webpage(danmaku_url, video_id, note='Downloading danmaku comments')
-        
         return danmaku
 
     def _get_tags(self, video_id):
-
         tags_url = "https://api.bilibili.com/x/tag/archive/tags?aid=%s" % (video_id)
         tags_json = self._download_json(tags_url, video_id, note='Downloading tags')
-        
         return tags_json['data']
+
 
 class BiliBiliBangumiIE(InfoExtractor):
     _VALID_URL = r'https?://bangumi\.bilibili\.com/anime/(?P<id>\d+)'
@@ -652,6 +655,7 @@ class BilibiliAudioIE(BilibiliAudioBaseIE):
         formats = [{
             'url': play_data['cdns'][0],
             'filesize': int_or_none(play_data.get('size')),
+            'vcodec': 'none'
         }]
 
         song = self._call_api('song/info', au_id)

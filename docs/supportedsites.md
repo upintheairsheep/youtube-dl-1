@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Supported sites
  - **1tv**: Первый канал
  - **1up.com**
@@ -1172,3 +1173,10 @@
  - **ZDFChannel**
  - **zingmp3**: mp3.zing.vn
  - **Zype**
+=======
+---
+orphan: true
+---
+```{include} ../supportedsites.md
+```
+>>>>>>> dlp/master

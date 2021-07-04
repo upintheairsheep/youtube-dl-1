@@ -35,6 +35,7 @@ from ..utils import (
     unsmuggle_url,
     UnsupportedError,
     url_or_none,
+    xpath_attr,
     xpath_text,
     xpath_with_ns,
 )
@@ -66,7 +67,10 @@ from .tube8 import Tube8IE
 from .mofosex import MofosexEmbedIE
 from .spankwire import SpankwireIE
 from .youporn import YouPornIE
-from .vimeo import VimeoIE
+from .vimeo import (
+    VimeoIE,
+    VHXEmbedIE,
+)
 from .dailymotion import DailymotionIE
 from .dailymail import DailyMailIE
 from .onionstudios import OnionStudiosIE
@@ -80,7 +84,6 @@ from .jwplatform import JWPlatformIE
 from .digiteka import DigitekaIE
 from .arkena import ArkenaIE
 from .instagram import InstagramIE
-from .liveleak import LiveLeakIE
 from .threeqsdn import ThreeQSDNIE
 from .theplatform import ThePlatformIE
 from .kaltura import KalturaIE
@@ -122,7 +125,16 @@ from .viqeo import ViqeoIE
 from .expressen import ExpressenIE
 from .zype import ZypeIE
 from .odnoklassniki import OdnoklassnikiIE
+from .vk import VKIE
 from .kinja import KinjaEmbedIE
+from .gedidigital import GediDigitalIE
+from .rcs import RCSEmbedsIE
+from .bitchute import BitChuteIE
+from .rumble import RumbleEmbedIE
+from .arcpublishing import ArcPublishingIE
+from .medialaan import MedialaanIE
+from .simplecast import SimplecastIE
+from .wimtv import WimTVIE
 
 
 class GenericIE(InfoExtractor):
@@ -208,14 +220,39 @@ class GenericIE(InfoExtractor):
             'playlist': [{
                 'info_dict': {
                     'ext': 'mov',
-                    'id': 'pdv_maddow_netcast_mov-12-04-2020-224335',
-                    'title': 're:MSNBC Rachel Maddow',
+                    'id': 'pdv_maddow_netcast_mov-12-03-2020-223726',
+                    'title': 'MSNBC Rachel Maddow (video) - 12-03-2020-223726',
                     'description': 're:.*her unique approach to storytelling.*',
-                    'timestamp': int,
-                    'upload_date': compat_str,
-                    'duration': float,
+                    'upload_date': '20201204',
                 },
             }],
+        },
+        # RSS feed with item with description and thumbnails
+        {
+            'url': 'https://anchor.fm/s/dd00e14/podcast/rss',
+            'info_dict': {
+                'id': 'https://anchor.fm/s/dd00e14/podcast/rss',
+                'title': 're:.*100% Hydrogen.*',
+                'description': 're:.*In this episode.*',
+            },
+            'playlist': [{
+                'info_dict': {
+                    'ext': 'm4a',
+                    'id': 'c1c879525ce2cb640b344507e682c36d',
+                    'title': 're:Hydrogen!',
+                    'description': 're:.*In this episode we are going.*',
+                    'timestamp': 1567977776,
+                    'upload_date': '20190908',
+                    'duration': 459,
+                    'thumbnail': r're:^https?://.*\.jpg$',
+                    'episode_number': 1,
+                    'season_number': 1,
+                    'age_limit': 0,
+                },
+            }],
+            'params': {
+                'skip_download': True,
+            },
         },
         # RSS feed with enclosures and unsupported link URLs
         {
@@ -1594,31 +1631,6 @@ class GenericIE(InfoExtractor):
                 'upload_date': '20160409',
             },
         },
-        # LiveLeak embed
-        {
-            'url': 'http://www.wykop.pl/link/3088787/',
-            'md5': '7619da8c820e835bef21a1efa2a0fc71',
-            'info_dict': {
-                'id': '874_1459135191',
-                'ext': 'mp4',
-                'title': 'Man shows poor quality of new apartment building',
-                'description': 'The wall is like a sand pile.',
-                'uploader': 'Lake8737',
-            },
-            'add_ie': [LiveLeakIE.ie_key()],
-        },
-        # Another LiveLeak embed pattern (#13336)
-        {
-            'url': 'https://milo.yiannopoulos.net/2017/06/concealed-carry-robbery/',
-            'info_dict': {
-                'id': '2eb_1496309988',
-                'ext': 'mp4',
-                'title': 'Thief robs place where everyone was armed',
-                'description': 'md5:694d73ee79e535953cf2488562288eee',
-                'uploader': 'brazilwtf',
-            },
-            'add_ie': [LiveLeakIE.ie_key()],
-        },
         # Duplicated embedded video URLs
         {
             'url': 'http://www.hudl.com/athlete/2538180/highlights/149298443',
@@ -1997,22 +2009,6 @@ class GenericIE(InfoExtractor):
             'add_ie': [SpringboardPlatformIE.ie_key()],
         },
         {
-            'url': 'https://www.youtube.com/shared?ci=1nEzmT-M4fU',
-            'info_dict': {
-                'id': 'uPDB5I9wfp8',
-                'ext': 'webm',
-                'title': 'Pocoyo: 90 minutos de episódios completos Português para crianças - PARTE 3',
-                'description': 'md5:d9e4d9346a2dfff4c7dc4c8cec0f546d',
-                'upload_date': '20160219',
-                'uploader': 'Pocoyo - Português (BR)',
-                'uploader_id': 'PocoyoBrazil',
-            },
-            'add_ie': [YoutubeIE.ie_key()],
-            'params': {
-                'skip_download': True,
-            },
-        },
-        {
             'url': 'https://www.yapfiles.ru/show/1872528/690b05d3054d2dbe1e69523aa21bb3b1.mp4.html',
             'info_dict': {
                 'id': 'vMDE4NzI1Mjgt690b',
@@ -2181,7 +2177,68 @@ class GenericIE(InfoExtractor):
         #     'params': {
         #         'force_generic_extractor': True,
         #     },
-        # }
+        # },
+        {
+            # VHX Embed
+            'url': 'https://demo.vhx.tv/category-c/videos/file-example-mp4-480-1-5mg-copy',
+            'info_dict': {
+                'id': '858208',
+                'ext': 'mp4',
+                'title': 'Untitled',
+                'uploader_id': 'user80538407',
+                'uploader': 'OTT Videos',
+            },
+        },
+        {
+            # ArcPublishing PoWa video player
+            'url': 'https://www.adn.com/politics/2020/11/02/video-senate-candidates-campaign-in-anchorage-on-eve-of-election-day/',
+            'md5': 'b03b2fac8680e1e5a7cc81a5c27e71b3',
+            'info_dict': {
+                'id': '8c99cb6e-b29c-4bc9-9173-7bf9979225ab',
+                'ext': 'mp4',
+                'title': 'Senate candidates wave to voters on Anchorage streets',
+                'description': 'md5:91f51a6511f090617353dc720318b20e',
+                'timestamp': 1604378735,
+                'upload_date': '20201103',
+                'duration': 1581,
+            },
+        },
+        {
+            # MyChannels SDK embed
+            # https://www.24kitchen.nl/populair/deskundige-dit-waarom-sommigen-gevoelig-zijn-voor-voedselallergieen
+            'url': 'https://www.demorgen.be/nieuws/burgemeester-rotterdam-richt-zich-in-videoboodschap-tot-relschoppers-voelt-het-goed~b0bcfd741/',
+            'md5': '90c0699c37006ef18e198c032d81739c',
+            'info_dict': {
+                'id': '194165',
+                'ext': 'mp4',
+                'title': 'Burgemeester Aboutaleb spreekt relschoppers toe',
+                'timestamp': 1611740340,
+                'upload_date': '20210127',
+                'duration': 159,
+            },
+        },
+        {
+            # Simplecast player embed
+            'url': 'https://www.bio.org/podcast',
+            'info_dict': {
+                'id': 'podcast',
+                'title': 'I AM BIO Podcast | BIO',
+            },
+            'playlist_mincount': 52,
+        },
+        {
+            # Sibnet embed (https://help.sibnet.ru/?sibnet_video_embed)
+            'url': 'https://phpbb3.x-tk.ru/bbcode-video-sibnet-t24.html',
+            'only_matching': True,
+        }, {
+            # WimTv embed player
+            'url': 'http://www.msmotor.tv/wearefmi-pt-2-2021/',
+            'info_dict': {
+                'id': 'wearefmi-pt-2-2021',
+                'title': '#WEAREFMI – PT.2 – 2021 – MsMotorTV',
+            },
+            'playlist_count': 1,
+        },
     ]
 
     def report_following_redirect(self, new_url):
@@ -2218,10 +2275,10 @@ class GenericIE(InfoExtractor):
                     default=None)
 
             duration = itunes('duration')
-            explicit = itunes('explicit')
-            if explicit == 'true':
+            explicit = (itunes('explicit') or '').lower()
+            if explicit in ('true', 'yes'):
                 age_limit = 18
-            elif explicit == 'false':
+            elif explicit in ('false', 'no'):
                 age_limit = 0
             else:
                 age_limit = None
@@ -2234,7 +2291,7 @@ class GenericIE(InfoExtractor):
                 'timestamp': unified_timestamp(
                     xpath_text(it, 'pubDate', default=None)),
                 'duration': int_or_none(duration) or parse_duration(duration),
-                'thumbnail': url_or_none(itunes('image')),
+                'thumbnail': url_or_none(xpath_attr(it, xpath_with_ns('./itunes:image', NS_MAP), 'href')),
                 'episode': itunes('title'),
                 'episode_number': int_or_none(itunes('episode')),
                 'season_number': int_or_none(itunes('season')),
@@ -2292,29 +2349,29 @@ class GenericIE(InfoExtractor):
 
         parsed_url = compat_urlparse.urlparse(url)
         if not parsed_url.scheme:
-            default_search = self._downloader.params.get('default_search')
+            default_search = self.get_param('default_search')
             if default_search is None:
                 default_search = 'fixup_error'
 
             if default_search in ('auto', 'auto_warning', 'fixup_error'):
                 if re.match(r'^[^\s/]+\.[^\s/]+/', url):
-                    self._downloader.report_warning('The url doesn\'t specify the protocol, trying with http')
+                    self.report_warning('The url doesn\'t specify the protocol, trying with http')
                     return self.url_result('http://' + url)
                 elif default_search != 'fixup_error':
                     if default_search == 'auto_warning':
                         if re.match(r'^(?:url|URL)$', url):
                             raise ExtractorError(
-                                'Invalid URL:  %r . Call youtube-dl like this:  youtube-dl -v "https://www.youtube.com/watch?v=BaW_jenozKc"  ' % url,
+                                'Invalid URL:  %r . Call yt-dlp like this:  yt-dlp -v "https://www.youtube.com/watch?v=BaW_jenozKc"  ' % url,
                                 expected=True)
                         else:
-                            self._downloader.report_warning(
+                            self.report_warning(
                                 'Falling back to youtube search for  %s . Set --default-search "auto" to suppress this warning.' % url)
                     return self.url_result('ytsearch:' + url)
 
             if default_search in ('error', 'fixup_error'):
                 raise ExtractorError(
                     '%r is not a valid URL. '
-                    'Set --default-search "ytsearch" (or run  youtube-dl "ytsearch:%s" ) to search YouTube'
+                    'Set --default-search "ytsearch" (or run  yt-dlp "ytsearch:%s" ) to search YouTube'
                     % (url, url), expected=True)
             else:
                 if ':' not in default_search:
@@ -2366,8 +2423,9 @@ class GenericIE(InfoExtractor):
         m = re.match(r'^(?P<type>audio|video|application(?=/(?:ogg$|(?:vnd\.apple\.|x-)?mpegurl)))/(?P<format_id>[^;\s]+)', content_type)
         if m:
             format_id = compat_str(m.group('format_id'))
+            subtitles = {}
             if format_id.endswith('mpegurl'):
-                formats = self._extract_m3u8_formats(url, video_id, 'mp4')
+                formats, subtitles = self._extract_m3u8_formats_and_subtitles(url, video_id, 'mp4')
             elif format_id == 'f4m':
                 formats = self._extract_f4m_formats(url, video_id)
             else:
@@ -2379,18 +2437,19 @@ class GenericIE(InfoExtractor):
                 info_dict['direct'] = True
             self._sort_formats(formats)
             info_dict['formats'] = formats
+            info_dict['subtitles'] = subtitles
             return info_dict
 
-        if not self._downloader.params.get('test', False) and not is_intentional:
-            force = self._downloader.params.get('force_generic_extractor', False)
-            self._downloader.report_warning(
+        if not self.get_param('test', False) and not is_intentional:
+            force = self.get_param('force_generic_extractor', False)
+            self.report_warning(
                 '%s on generic information extractor.' % ('Forcing' if force else 'Falling back'))
 
         if not full_response:
             request = sanitized_Request(url)
             # Some webservers may serve compressed content of rather big size (e.g. gzipped flac)
             # making it impossible to download only chunk of the file (yet we need only 512kB to
-            # test whether it's HTML or not). According to youtube-dl default Accept-Encoding
+            # test whether it's HTML or not). According to yt-dlp default Accept-Encoding
             # that will always result in downloading the whole file that is not desirable.
             # Therefore for extraction pass we have to override Accept-Encoding to any in order
             # to accept raw bytes and being able to download only a chunk.
@@ -2410,7 +2469,7 @@ class GenericIE(InfoExtractor):
         # Maybe it's a direct link to a video?
         # Be careful not to download the whole thing!
         if not is_html(first_bytes):
-            self._downloader.report_warning(
+            self.report_warning(
                 'URL could be a direct video link, returning it as such.')
             info_dict.update({
                 'direct': True,
@@ -2421,15 +2480,21 @@ class GenericIE(InfoExtractor):
         webpage = self._webpage_read_content(
             full_response, url, video_id, prefix=first_bytes)
 
+        if '<title>DPG Media Privacy Gate</title>' in webpage:
+            webpage = self._download_webpage(url, video_id)
+
         self.report_extraction(video_id)
 
         # Is it an RSS feed, a SMIL file, an XSPF playlist or a MPD manifest?
         try:
-            doc = compat_etree_fromstring(webpage.encode('utf-8'))
+            try:
+                doc = compat_etree_fromstring(webpage)
+            except compat_xml_parse_error:
+                doc = compat_etree_fromstring(webpage.encode('utf-8'))
             if doc.tag == 'rss':
                 return self._extract_rss(url, video_id, doc)
             elif doc.tag == 'SmoothStreamingMedia':
-                info_dict['formats'] = self._parse_ism_formats(doc, url)
+                info_dict['formats'], info_dict['subtitles'] = self._parse_ism_formats_and_subtitles(doc, url)
                 self._sort_formats(info_dict['formats'])
                 return info_dict
             elif re.match(r'^(?:{[^}]+})?smil$', doc.tag):
@@ -2443,7 +2508,7 @@ class GenericIE(InfoExtractor):
                         xspf_base_url=full_response.geturl()),
                     video_id)
             elif re.match(r'(?i)^(?:{[^}]+})?MPD$', doc.tag):
-                info_dict['formats'] = self._parse_mpd_formats(
+                info_dict['formats'], info_dict['subtitles'] = self._parse_mpd_formats_and_subtitles(
                     doc,
                     mpd_base_url=full_response.geturl().rpartition('/')[0],
                     mpd_url=url)
@@ -2548,6 +2613,15 @@ class GenericIE(InfoExtractor):
         if tp_urls:
             return self.playlist_from_matches(tp_urls, video_id, video_title, ie='ThePlatform')
 
+        arc_urls = ArcPublishingIE._extract_urls(webpage)
+        if arc_urls:
+            return self.playlist_from_matches(arc_urls, video_id, video_title, ie=ArcPublishingIE.ie_key())
+
+        mychannels_urls = MedialaanIE._extract_urls(webpage)
+        if mychannels_urls:
+            return self.playlist_from_matches(
+                mychannels_urls, video_id, video_title, ie=MedialaanIE.ie_key())
+
         # Look for embedded rtl.nl player
         matches = re.findall(
             r'<iframe[^>]+?src="((?:https?:)?//(?:(?:www|static)\.)?rtl\.nl/(?:system/videoplayer/[^"]+(?:video_)?)?embed[^"]+)"',
@@ -2559,11 +2633,24 @@ class GenericIE(InfoExtractor):
         if vimeo_urls:
             return self.playlist_from_matches(vimeo_urls, video_id, video_title, ie=VimeoIE.ie_key())
 
+        vhx_url = VHXEmbedIE._extract_url(webpage)
+        if vhx_url:
+            return self.url_result(vhx_url, VHXEmbedIE.ie_key())
+
         vid_me_embed_url = self._search_regex(
             r'src=[\'"](https?://vid\.me/[^\'"]+)[\'"]',
             webpage, 'vid.me embed', default=None)
         if vid_me_embed_url is not None:
             return self.url_result(vid_me_embed_url, 'Vidme')
+
+        # Invidious Instances
+        # https://github.com/yt-dlp/yt-dlp/issues/195
+        # https://github.com/iv-org/invidious/pull/1730
+        youtube_url = self._search_regex(
+            r'<link rel="alternate" href="(https://www\.youtube\.com/watch\?v=[0-9A-Za-z_-]{11})"',
+            webpage, 'youtube link', default=None)
+        if youtube_url:
+            return self.url_result(youtube_url, YoutubeIE.ie_key())
 
         # Look for YouTube embeds
         youtube_urls = YoutubeIE._extract_urls(webpage)
@@ -2695,6 +2782,11 @@ class GenericIE(InfoExtractor):
         if odnoklassniki_url:
             return self.url_result(odnoklassniki_url, OdnoklassnikiIE.ie_key())
 
+        # Look for sibnet embedded player
+        sibnet_urls = VKIE._extract_sibnet_urls(webpage)
+        if sibnet_urls:
+            return self.playlist_from_matches(sibnet_urls, video_id, video_title)
+
         # Look for embedded ivi player
         mobj = re.search(r'<embed[^>]+?src=(["\'])(?P<url>https?://(?:www\.)?ivi\.ru/video/player.+?)\1', webpage)
         if mobj is not None:
@@ -2719,6 +2811,12 @@ class GenericIE(InfoExtractor):
         if matches:
             return self.playlist_from_matches(
                 matches, video_id, video_title, getter=unescapeHTML, ie='FunnyOrDie')
+
+        # Look for Simplecast embeds
+        simplecast_urls = SimplecastIE._extract_urls(webpage)
+        if simplecast_urls:
+            return self.playlist_from_matches(
+                simplecast_urls, video_id, video_title)
 
         # Look for BBC iPlayer embed
         matches = re.findall(r'setPlaylist\("(https?://www\.bbc\.co\.uk/iplayer/[^/]+/[\da-z]{8})"\)', webpage)
@@ -2865,7 +2963,7 @@ class GenericIE(InfoExtractor):
             webpage)
         if not mobj:
             mobj = re.search(
-                r'data-video-link=["\'](?P<url>http://m.mlb.com/video/[^"\']+)',
+                r'data-video-link=["\'](?P<url>http://m\.mlb\.com/video/[^"\']+)',
                 webpage)
         if mobj is not None:
             return self.url_result(mobj.group('url'), 'MLB')
@@ -3080,11 +3178,6 @@ class GenericIE(InfoExtractor):
             return self.url_result(
                 self._proto_relative_url(instagram_embed_url), InstagramIE.ie_key())
 
-        # Look for LiveLeak embeds
-        liveleak_urls = LiveLeakIE._extract_urls(webpage)
-        if liveleak_urls:
-            return self.playlist_from_matches(liveleak_urls, video_id, video_title)
-
         # Look for 3Q SDN embeds
         threeqsdn_url = ThreeQSDNIE._extract_url(webpage)
         if threeqsdn_url:
@@ -3249,6 +3342,34 @@ class GenericIE(InfoExtractor):
             return self.playlist_from_matches(
                 zype_urls, video_id, video_title, ie=ZypeIE.ie_key())
 
+        gedi_urls = GediDigitalIE._extract_urls(webpage)
+        if gedi_urls:
+            return self.playlist_from_matches(
+                gedi_urls, video_id, video_title, ie=GediDigitalIE.ie_key())
+
+        # Look for RCS media group embeds
+        rcs_urls = RCSEmbedsIE._extract_urls(webpage)
+        if rcs_urls:
+            return self.playlist_from_matches(
+                rcs_urls, video_id, video_title, ie=RCSEmbedsIE.ie_key())
+
+        wimtv_urls = WimTVIE._extract_urls(webpage)
+        if wimtv_urls:
+            return self.playlist_from_matches(
+                wimtv_urls, video_id, video_title, ie=WimTVIE.ie_key())
+
+        bitchute_urls = BitChuteIE._extract_urls(webpage)
+        if bitchute_urls:
+            return self.playlist_from_matches(
+                bitchute_urls, video_id, video_title, ie=BitChuteIE.ie_key())
+
+        rumble_urls = RumbleEmbedIE._extract_urls(webpage)
+        if len(rumble_urls) == 1:
+            return self.url_result(rumble_urls[0], RumbleEmbedIE.ie_key())
+        if rumble_urls:
+            return self.playlist_from_matches(
+                rumble_urls, video_id, video_title, ie=RumbleEmbedIE.ie_key())
+
         # Look for HTML5 media
         entries = self._parse_html5_media_entries(url, webpage, video_id, m3u8_id='hls')
         if entries:
@@ -3312,6 +3433,9 @@ class GenericIE(InfoExtractor):
                         'url': src,
                         'ext': (mimetype2ext(src_type)
                                 or ext if ext in KNOWN_EXTENSIONS else 'mp4'),
+                        'http_headers': {
+                            'Referer': full_response.geturl(),
+                        },
                     })
             if formats:
                 self._sort_formats(formats)
@@ -3380,7 +3504,7 @@ class GenericIE(InfoExtractor):
             m_video_type = re.findall(r'<meta.*?property="og:video:type".*?content="video/(.*?)"', webpage)
             # We only look in og:video if the MIME type is a video, don't try if it's a Flash player:
             if m_video_type is not None:
-                found = filter_video(re.findall(r'<meta.*?property="og:video".*?content="(.*?)"', webpage))
+                found = filter_video(re.findall(r'<meta.*?property="og:(?:video|audio)".*?content="(.*?)"', webpage))
         if not found:
             REDIRECT_REGEX = r'[0-9]{,2};\s*(?:URL|url)=\'?([^\'"]+)'
             found = re.search(
@@ -3408,7 +3532,7 @@ class GenericIE(InfoExtractor):
 
         if not found:
             # twitter:player is a https URL to iframe player that may or may not
-            # be supported by youtube-dl thus this is checked the very last (see
+            # be supported by yt-dlp thus this is checked the very last (see
             # https://dev.twitter.com/cards/types/player#On_twitter.com_via_desktop_browser)
             embed_url = self._html_search_meta('twitter:player', webpage, default=None)
             if embed_url and embed_url != url:

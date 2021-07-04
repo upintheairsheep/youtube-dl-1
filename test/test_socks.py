@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 from __future__ import unicode_literals
 
@@ -15,7 +15,7 @@ from test.helper import (
     FakeYDL,
     get_params,
 )
-from youtube_dl.compat import (
+from yt_dlp.compat import (
     compat_str,
     compat_urllib_request,
 )

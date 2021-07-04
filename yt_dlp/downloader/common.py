@@ -36,6 +36,7 @@ class FileDownloader(object):
     verbose:            Print additional info to stdout.
     quiet:              Do not print messages to stdout.
     ratelimit:          Download speed limit, in bytes/sec.
+    throttledratelimit: Assume the download is being throttled below this speed (bytes/sec)
     retries:            Number of times to retry for HTTP error 5xx
     buffersize:         Size of download buffer in bytes.
     noresizebuffer:     Do not automatically resize the download buffer.
@@ -151,10 +152,10 @@ class FileDownloader(object):
         return int(round(number * multiplier))
 
     def to_screen(self, *args, **kargs):
-        self.ydl.to_screen(*args, **kargs)
+        self.ydl.to_stdout(*args, quiet=self.params.get('quiet'), **kargs)
 
     def to_stderr(self, message):
-        self.ydl.to_screen(message)
+        self.ydl.to_stderr(message)
 
     def to_console_title(self, message):
         self.ydl.to_console_title(message)
@@ -167,6 +168,9 @@ class FileDownloader(object):
 
     def report_error(self, *args, **kargs):
         self.ydl.report_error(*args, **kargs)
+
+    def write_debug(self, *args, **kargs):
+        self.ydl.write_debug(*args, **kargs)
 
     def slow_down(self, start_time, now, byte_counter):
         """Sleep if the download speed is over the rate limit."""
@@ -247,7 +251,7 @@ class FileDownloader(object):
             else:
                 clear_line = ('\r\x1b[K' if sys.stderr.isatty() else '\r')
             self.to_screen(clear_line + fullmsg, skip_eol=not is_last_line)
-        self.to_console_title('youtube-dl ' + msg)
+        self.to_console_title('yt-dlp ' + msg)
 
     def report_progress(self, s):
         if s['status'] == 'finished':
@@ -316,7 +320,7 @@ class FileDownloader(object):
     def report_retry(self, err, count, retries):
         """Report retry in case of HTTP error 5xx"""
         self.to_screen(
-            '[download] Got server HTTP error: %s. Retrying (attempt %d of %s)...'
+            '[download] Got server HTTP error: %s. Retrying (attempt %d of %s) ...'
             % (error_to_compat_str(err), count, self.format_retries(retries)))
 
     def report_file_already_downloaded(self, file_name):
@@ -330,13 +334,19 @@ class FileDownloader(object):
         """Report it was impossible to resume download."""
         self.to_screen('[download] Unable to resume')
 
-    def download(self, filename, info_dict):
+    @staticmethod
+    def supports_manifest(manifest):
+        """ Whether the downloader can download the fragments from the manifest.
+        Redefine in subclasses if needed. """
+        pass
+
+    def download(self, filename, info_dict, subtitle=False):
         """Download to a filename using the info from info_dict
         Return True on success and False otherwise
         """
 
         nooverwrites_and_exists = (
-            self.params.get('nooverwrites', False)
+            not self.params.get('overwrites', subtitle)
             and os.path.exists(encodeFilename(filename))
         )
 
@@ -355,49 +365,28 @@ class FileDownloader(object):
                     'status': 'finished',
                     'total_bytes': os.path.getsize(encodeFilename(filename)),
                 })
-                return True
+                return True, False
 
-        min_sleep_interval = self.params.get('sleep_interval')
-        if min_sleep_interval:
-            max_sleep_interval = self.params.get('max_sleep_interval', min_sleep_interval)
-            sleep_interval = random.uniform(min_sleep_interval, max_sleep_interval)
-            self.to_screen(
-                '[download] Sleeping %s seconds...' % (
-                    int(sleep_interval) if sleep_interval.is_integer()
-                    else '%.2f' % sleep_interval))
-            time.sleep(sleep_interval)
-
-        timer = [None]
-        heartbeat_lock = None
-        download_complete = False
-        if 'heartbeat_url'in info_dict:
-            heartbeat_lock = threading.Lock()
-
-            heartbeat_url = info_dict['heartbeat_url']
-            heartbeat_data = info_dict['heartbeat_data']
-            heartbeat_interval = info_dict.get('heartbeat_interval', 30)
-            self.to_screen('[download] Heartbeat with %s second interval...' % heartbeat_interval)
-
-            def heartbeat():
-                try:
-                    compat_urllib_request.urlopen(url=heartbeat_url, data=heartbeat_data)
-                except Exception:
-                    self.to_screen("[download] Heartbeat failed")
-
-                with heartbeat_lock:
-                    if not download_complete:
-                        timer[0] = threading.Timer(heartbeat_interval, heartbeat)
-                        timer[0].start()
-
-            heartbeat()
-
-        try:
-            return self.real_download(filename, info_dict)
-        finally:
-            if heartbeat_lock:
-                with heartbeat_lock:
-                    timer[0].cancel()
-                    download_complete = True
+        if subtitle is False:
+            min_sleep_interval = self.params.get('sleep_interval')
+            if min_sleep_interval:
+                max_sleep_interval = self.params.get('max_sleep_interval', min_sleep_interval)
+                sleep_interval = random.uniform(min_sleep_interval, max_sleep_interval)
+                self.to_screen(
+                    '[download] Sleeping %s seconds ...' % (
+                        int(sleep_interval) if sleep_interval.is_integer()
+                        else '%.2f' % sleep_interval))
+                time.sleep(sleep_interval)
+        else:
+            sleep_interval_sub = 0
+            if type(self.params.get('sleep_interval_subtitles')) is int:
+                sleep_interval_sub = self.params.get('sleep_interval_subtitles')
+            if sleep_interval_sub > 0:
+                self.to_screen(
+                    '[download] Sleeping %s seconds ...' % (
+                        sleep_interval_sub))
+                time.sleep(sleep_interval_sub)
+        return self.real_download(filename, info_dict), True
 
     def real_download(self, filename, info_dict):
         """Real download process. Redefine in subclasses."""
@@ -421,5 +410,4 @@ class FileDownloader(object):
         if exe is None:
             exe = os.path.basename(str_args[0])
 
-        self.to_screen('[debug] %s command line: %s' % (
-            exe, shell_quote(str_args)))
+        self.write_debug('%s command line: %s' % (exe, shell_quote(str_args)))

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import unicode_literals
 
 # Allow direct execution
@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from test.helper import try_rm
 
 
-from youtube_dl import YoutubeDL
+from yt_dlp import YoutubeDL
 
 
 def _download_restricted(url, filename, age):

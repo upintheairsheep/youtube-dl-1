@@ -1,26 +1,10 @@
-*.pyc
-*.pyo
-*.class
-*~
-*.DS_Store
-wine-py2exe/
-py2exe.log
-*.kate-swp
-build/
-dist/
-MANIFEST
-README.txt
-youtube-dl.1
-youtube-dl.bash-completion
-youtube-dl.fish
-youtube_dl/extractor/lazy_extractors.py
-youtube-dl
-youtube-dl.exe
-youtube-dl.tar.gz
-.coverage
-cover/
-updates_key.pem
-*.egg-info
+# Config
+*.conf
+*.spec
+cookies
+cookies.txt
+
+# Downloaded
 *.srt
 *.ttml
 *.sbv
@@ -31,23 +15,87 @@ updates_key.pem
 *.m4v
 *.mp3
 *.3gp
+*.webm
 *.wav
 *.ape
 *.mkv
 *.swf
 *.part
+*.part-*
 *.ytdl
+*.dump
+*.frag
+*.frag.urls
+*.aria2
 *.swp
-test/local_parameters.json
-.tox
-youtube-dl.zsh
+*.ogg
+*.opus
+*.info.json
+*.live_chat.json
+*.jpg
+*.png
+*.webp
+*.annotations.xml
+*.description
 
-# IntelliJ related files
-.idea
-*.iml
+# Allow config/media files in testdata
+!test/testdata/**
 
+# Python
+*.pyc
+*.pyo
+wine-py2exe/
+py2exe.log
+build/
+dist/
+zip/
 tmp/
 venv/
+completions/
 
-# VS Code related files
+# Misc
+*~
+*.DS_Store
+*.kate-swp
+MANIFEST
+test/local_parameters.json
+.coverage
+cover/
+secrets/
+updates_key.pem
+*.egg-info
+.tox
+*.class
+
+# Generated
+AUTHORS
+README.txt
+.mailmap
+*.1
+*.bash-completion
+*.fish
+*.exe
+*.tar.gz
+*.zsh
+*.spec
+
+# Binary
+/youtube-dl
+/youtube-dlc
+/yt-dlp
+yt-dlp.zip
+*.exe
+
+# Text Editor / IDE
+.idea
+*.iml
 .vscode
+*.sublime-*
+
+# Lazy extractors
+*/extractor/lazy_extractors.py
+
+# Plugins
+ytdlp_plugins/extractor/*
+!ytdlp_plugins/extractor/__init__.py
+!ytdlp_plugins/extractor/sample.py

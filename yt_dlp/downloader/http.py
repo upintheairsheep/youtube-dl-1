@@ -18,6 +18,7 @@ from ..utils import (
     int_or_none,
     sanitize_open,
     sanitized_Request,
+    ThrottledDownload,
     write_xattr,
     XAttrMetadataError,
     XAttrUnavailableError,
@@ -27,6 +28,7 @@ from ..utils import (
 class HttpFD(FileDownloader):
     def real_download(self, filename, info_dict):
         url = info_dict['url']
+        request_data = info_dict.get('request_data', None)
 
         class DownloadContext(dict):
             __getattr__ = dict.get
@@ -101,7 +103,7 @@ class HttpFD(FileDownloader):
                 range_end = ctx.data_len - 1
             has_range = range_start is not None
             ctx.has_range = has_range
-            request = sanitized_Request(url, None, headers)
+            request = sanitized_Request(url, request_data, headers)
             if has_range:
                 set_range(request, range_start, range_end)
             # Establish connection
@@ -152,7 +154,7 @@ class HttpFD(FileDownloader):
                     try:
                         # Open the connection again without the range header
                         ctx.data = self.ydl.urlopen(
-                            sanitized_Request(url, None, headers))
+                            sanitized_Request(url, request_data, headers))
                         content_length = ctx.data.info()['Content-Length']
                     except (compat_urllib_error.HTTPError, ) as err:
                         if err.code < 500 or err.code >= 600:
@@ -222,6 +224,7 @@ class HttpFD(FileDownloader):
             # measure time over whole while-loop, so slow_down() and best_block_size() work together properly
             now = None  # needed for slow_down() in the first loop run
             before = start  # start measuring
+            throttle_start = None
 
             def retry(e):
                 to_stdout = ctx.tmpfilename == '-'
@@ -311,6 +314,18 @@ class HttpFD(FileDownloader):
 
                 if data_len is not None and byte_counter == data_len:
                     break
+
+                if speed and speed < (self.params.get('throttledratelimit') or 0):
+                    # The speed must stay below the limit for 3 seconds
+                    # This prevents raising error when the speed temporarily goes down
+                    if throttle_start is None:
+                        throttle_start = now
+                    elif now - throttle_start > 3:
+                        if ctx.stream is not None and ctx.tmpfilename != '-':
+                            ctx.stream.close()
+                        raise ThrottledDownload()
+                else:
+                    throttle_start = None
 
             if not is_test and ctx.chunk_size and ctx.data_len is not None and byte_counter < ctx.data_len:
                 ctx.resume_len = byte_counter

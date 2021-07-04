@@ -38,14 +38,19 @@ except ImportError:  # Python 2
     import urllib as compat_urllib_parse
 
 try:
+    import urllib.parse as compat_urlparse
+except ImportError:  # Python 2
+    import urlparse as compat_urlparse
+
+try:
     from urllib.parse import urlparse as compat_urllib_parse_urlparse
 except ImportError:  # Python 2
     from urlparse import urlparse as compat_urllib_parse_urlparse
 
 try:
-    import urllib.parse as compat_urlparse
+    from urllib.parse import urlunparse as compat_urllib_parse_urlunparse
 except ImportError:  # Python 2
-    import urlparse as compat_urlparse
+    from urlparse import urlunparse as compat_urllib_parse_urlunparse
 
 try:
     import urllib.response as compat_urllib_response
@@ -72,6 +77,15 @@ try:
     import http.cookies as compat_cookies
 except ImportError:  # Python 2
     import Cookie as compat_cookies
+
+if sys.version_info[0] == 2:
+    class compat_cookies_SimpleCookie(compat_cookies.SimpleCookie):
+        def load(self, rawdata):
+            if isinstance(rawdata, compat_str):
+                rawdata = str(rawdata)
+            return super(compat_cookies_SimpleCookie, self).load(rawdata)
+else:
+    compat_cookies_SimpleCookie = compat_cookies.SimpleCookie
 
 try:
     import html.entities as compat_html_entities
@@ -2366,6 +2380,20 @@ except NameError:
     compat_str = str
 
 try:
+    from urllib.parse import quote as compat_urllib_parse_quote
+    from urllib.parse import quote_plus as compat_urllib_parse_quote_plus
+except ImportError:  # Python 2
+    def compat_urllib_parse_quote(string, safe='/'):
+        return compat_urllib_parse.quote(
+            string.encode('utf-8'),
+            str(safe))
+
+    def compat_urllib_parse_quote_plus(string, safe=''):
+        return compat_urllib_parse.quote_plus(
+            string.encode('utf-8'),
+            str(safe))
+
+try:
     from urllib.parse import unquote_to_bytes as compat_urllib_parse_unquote_to_bytes
     from urllib.parse import unquote as compat_urllib_parse_unquote
     from urllib.parse import unquote_plus as compat_urllib_parse_unquote_plus
@@ -2877,6 +2905,7 @@ else:
     _terminal_size = collections.namedtuple('terminal_size', ['columns', 'lines'])
 
     def compat_get_terminal_size(fallback=(80, 24)):
+        from .utils import process_communicate_or_kill
         columns = compat_getenv('COLUMNS')
         if columns:
             columns = int(columns)
@@ -2893,7 +2922,7 @@ else:
                 sp = subprocess.Popen(
                     ['stty', 'size'],
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                out, err = sp.communicate()
+                out, err = process_communicate_or_kill(sp)
                 _lines, _columns = map(int, out.split())
             except Exception:
                 _columns, _lines = _terminal_size(*fallback)
@@ -2973,7 +3002,7 @@ else:
 
 if platform.python_implementation() == 'PyPy' and sys.pypy_version_info < (5, 4, 0):
     # PyPy2 prior to version 5.4.0 expects byte strings as Windows function
-    # names, see the original PyPy issue [1] and the youtube-dl one [2].
+    # names, see the original PyPy issue [1] and the yt-dlp one [2].
     # 1. https://bitbucket.org/pypy/pypy/issues/2360/windows-ctypescdll-typeerror-function-name
     # 2. https://github.com/ytdl-org/youtube-dl/pull/4392
     def compat_ctypes_WINFUNCTYPE(*args, **kwargs):
@@ -2989,17 +3018,48 @@ else:
         return ctypes.WINFUNCTYPE(*args, **kwargs)
 
 
+try:
+    compat_Pattern = re.Pattern
+except AttributeError:
+    compat_Pattern = type(re.compile(''))
+
+
+try:
+    compat_Match = re.Match
+except AttributeError:
+    compat_Match = type(re.compile('').match(''))
+
+
+import asyncio
+try:
+    compat_asyncio_run = asyncio.run
+except AttributeError:
+    def compat_asyncio_run(coro):
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        loop.run_until_complete(coro)
+
+    asyncio.run = compat_asyncio_run
+
+
 __all__ = [
     'compat_HTMLParseError',
     'compat_HTMLParser',
     'compat_HTTPError',
+    'compat_Match',
+    'compat_Pattern',
     'compat_Struct',
+    'compat_asyncio_run',
     'compat_b64decode',
     'compat_basestring',
     'compat_chr',
     'compat_cookiejar',
     'compat_cookiejar_Cookie',
     'compat_cookies',
+    'compat_cookies_SimpleCookie',
     'compat_ctypes_WINFUNCTYPE',
     'compat_etree_Element',
     'compat_etree_fromstring',
@@ -3033,11 +3093,14 @@ __all__ = [
     'compat_tokenize_tokenize',
     'compat_urllib_error',
     'compat_urllib_parse',
+    'compat_urllib_parse_quote',
+    'compat_urllib_parse_quote_plus',
     'compat_urllib_parse_unquote',
     'compat_urllib_parse_unquote_plus',
     'compat_urllib_parse_unquote_to_bytes',
     'compat_urllib_parse_urlencode',
     'compat_urllib_parse_urlparse',
+    'compat_urllib_parse_urlunparse',
     'compat_urllib_request',
     'compat_urllib_request_DataHandler',
     'compat_urllib_response',
