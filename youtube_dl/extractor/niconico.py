@@ -713,6 +713,7 @@ class NiconicoPlaylistIE(InfoExtractor):
                     '_type': 'url',
                     'ie_key': NiconicoIE.ie_key(),
                     'url': 'http://www.nicovideo.jp/watch/%s' % (item['watchId']),
+                    'id': item['watchId'],
                     'playlist_id': item['itemId'],
                     'playlist_description': item['description'],
                     'playlist_added_on': item['addedAt']
